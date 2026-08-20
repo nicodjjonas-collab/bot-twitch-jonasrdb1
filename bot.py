@@ -9,11 +9,12 @@ from google import genai
 
 # 1. Carga de Variables de Entorno (Configúralas en Railway)
 TOKEN = os.environ.get('TWITCH_TOKEN')
+CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID') # <-- Añadido aquí
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT_NAME = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
-# Configuración del nuevo cliente de Google Gen AI
+# Configuración del cliente de Google Gen AI
 if GEMINI_KEY:
     ai_client = genai.Client(api_key=GEMINI_KEY)
 else:
@@ -36,6 +37,7 @@ class Bot(commands.Bot):
     def __init__(self):
         super().__init__(
             token=TOKEN,
+            client_id=CLIENT_ID, # <-- Requerido por la versión actual de twitchio
             prefix='!',
             initial_channels=[CANAL]
         )
@@ -56,21 +58,19 @@ class Bot(commands.Bot):
     async def hola_command(self, ctx: commands.Context):
         await ctx.send(f'¡Hola @{ctx.author.name}! Qué bueno verte por aquí.')
 
-    # Comando integrado con Google Gemini (SDK nuevo)
+    # Comando integrado con Google Gemini
     @commands.command(name='ia')
     async def ia_command(self, ctx: commands.Context):
         if not ai_client:
             await ctx.send(f"@{ctx.author.name} La IA no está configurada (falta la GEMINI_API_KEY en Railway).")
             return
 
-        # Extraer el texto que mandó el usuario después de !ia
         prompt = ctx.message.content.replace('!ia', '').strip()
         if not prompt:
             await ctx.send(f"@{ctx.author.name} Por favor, escribe algo para preguntarle a la IA. Ejemplo: !ia ¿Qué es Python?")
             return
 
         try:
-            # Llamada utilizando el nuevo SDK de Google Gen AI
             response = ai_client.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=prompt,
@@ -78,7 +78,6 @@ class Bot(commands.Bot):
             
             respuesta_texto = response.text.strip().replace('\n', ' ')
             
-            # Limitar longitud para el chat de Twitch
             if len(respuesta_texto) > 450:
                 respuesta_texto = respuesta_texto[:447] + "..."
                 
@@ -90,4 +89,4 @@ class Bot(commands.Bot):
 
 if __name__ == '__main__':
     bot = Bot()
-    bot.run()
+    bot.run()s
