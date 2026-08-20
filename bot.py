@@ -11,6 +11,7 @@ from google import genai
 # ----------------------------------------
 TOKEN = os.environ.get('TWITCH_TOKEN')
 CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID')
+CLIENT_SECRET = os.environ.get('TWITCH_CLIENT_SECRET') # <--- OBLIGATORIO PARA EVITAR EL ERROR
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
@@ -21,6 +22,7 @@ class Bot(commands.Bot):
         super().__init__(
             token=TOKEN,
             client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET, 
             prefix='!',
             initial_channels=[CANAL]
         )
@@ -119,7 +121,6 @@ class Bot(commands.Bot):
     async def festero(self, ctx: commands.Context):
         porcentaje = random.randint(0, 100)
         
-        # Mensajes personalizados según el porcentaje
         if porcentaje < 20:
             reaccion = "Necesitas un buen temazo hard dance para despertar. 😴"
         elif porcentaje < 50:
@@ -164,7 +165,7 @@ class Bot(commands.Bot):
         else: await ctx.send(f"❌ ¡Fallaste @{ctx.author.name}! Era VERDADERO.")
 
     # ----------------------------------------
-    # JUEGO: AHORCADO (Visualización mejorada)
+    # JUEGO: AHORCADO
     # ----------------------------------------
     @commands.command(name='ahorcado')
     async def ahorcado_start(self, ctx: commands.Context):
@@ -331,5 +332,8 @@ class Bot(commands.Bot):
         return False
 
 if __name__ == '__main__':
-    bot = Bot()
-    bot.run()
+    if not TOKEN or not CLIENT_ID or not CLIENT_SECRET:
+        print("ERROR CRÍTICO: Faltan variables de entorno esenciales (TOKEN, CLIENT_ID o TWITCH_CLIENT_SECRET) en Railway.")
+    else:
+        bot = Bot()
+        bot.run()
