@@ -1,3 +1,4 @@
 requests
 google-genai
 twitchio>=2.9.0
+starlette
