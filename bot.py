@@ -10,17 +10,23 @@ from google import genai
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'jonasrdb').lower() 
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
-GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
+
+# Cogemos la API key de cualquiera de las variables posibles para evitar fallos
+GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
 print(f"[INIT] Arrancando bot asíncrono para el canal: {CANAL}")
 
 ai_client = None
 if GEMINI_KEY:
     try:
-        ai_client = genai.Client(api_key=GEMINI_KEY)
-        print("[INIT] Gemini conectado.")
+        # Aseguramos que la librería detecte la key configurándola también en el entorno
+        os.environ['GEMINI_API_KEY'] = GEMINI_KEY
+        ai_client = genai.Client()
+        print("[INIT] Gemini conectado correctamente.")
     except Exception as e:
-        print(f"[INIT] Error Gemini: {e}")
+        print(f"[INIT] Error crítico al iniciar Gemini: {e}")
+else:
+    print("[INIT] AVISO: No se encontró la clave de Gemini (GEMINI_API_KEY).")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -115,7 +121,7 @@ class Bot(commands.Bot):
     @commands.command(name='ia')
     async def ia_command(self, ctx: commands.Context):
         if not ai_client: 
-            return await ctx.send("IA no configurada.")
+            return await ctx.send(f"@{ctx.author.name} IA no configurada (falta la API Key).")
         prompt = ctx.message.content.replace('!ia', '', 1).strip()
         if not prompt: 
             return await ctx.send(f"@{ctx.author.name} Escribe algo: !ia <pregunta>")
@@ -127,7 +133,8 @@ class Bot(commands.Bot):
             texto_respuesta = response.text if response and response.text else "¡Temarral absoluto! 🔥"
             await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:400]}")
         except Exception as e:
-            print(f"[ERROR GEMINI DETALLADO] {e}")
+            # Imprime el error real en tu consola para saber exactamente qué pasa si vuelve a fallar
+            print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
             await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
 
     @commands.command(name='festero')
