@@ -12,7 +12,7 @@ from google import genai
 TOKEN = os.environ.get('TWITCH_TOKEN')
 CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID')
 CLIENT_SECRET = os.environ.get('TWITCH_CLIENT_SECRET')
-CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
+CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
 ai_client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
@@ -49,18 +49,18 @@ class Bot(commands.Bot):
         self.trivia_respuesta = ""
 
     async def event_ready(self):
-        print(f'¡Conectado a Twitch exitosamente!')
-        print(f'Escuchando el canal: {CANAL}')
-        # Corrección aplicada: Uso directo de asyncio.create_task() compatible con TwitchIO
+        print(f'=== BOT CONECTADO CORRECTAMENTE ===')
+        print(f'Logueado como: {self.nick}')
+        print(f'Canal objetivo: {CANAL}')
         asyncio.create_task(self.bucle_autonomo_chat())
 
     async def bucle_autonomo_chat(self):
         """Rutina autónoma segura para romper el hielo en el chat"""
-        await asyncio.sleep(10)
+        await asyncio.sleep(15)
         while True:
             try:
-                await asyncio.sleep(75)
-                if time.time() - self.ultimo_mensaje > 120:
+                await asyncio.sleep(90)
+                if time.time() - self.ultimo_mensaje > 140:
                     canal_obj = self.get_channel(CANAL)
                     if canal_obj:
                         if ai_client:
@@ -85,6 +85,9 @@ class Bot(commands.Bot):
     async def event_message(self, message):
         if message.echo:
             return
+
+        # Log en consola para depurar si Twitch pasa los mensajes al bot
+        print(f"[CHAT] {message.author.name}: {message.content}")
 
         self.ultimo_mensaje = time.time()
         
@@ -337,7 +340,7 @@ class Bot(commands.Bot):
 
 if __name__ == '__main__':
     if not TOKEN or not CLIENT_ID or not CLIENT_SECRET:
-        print("ERROR CRÍTICO: Faltan variables de entorno esenciales.")
+        print("ERROR CRÍTICO: Faltan variables de entorno esenciales para conectar con Twitch.")
     else:
         bot = Bot()
         bot.run()
