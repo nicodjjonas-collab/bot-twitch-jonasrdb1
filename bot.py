@@ -20,6 +20,9 @@ ai_client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
 
 class Bot(commands.Bot):
     def __init__(self):
+        # Asignamos el nick explícitamente para evitar problemas en el evento ready
+        self.nick = BOT_NICK
+        
         super().__init__(
             token=TOKEN,
             client_id=CLIENT_ID,
@@ -90,7 +93,6 @@ class Bot(commands.Bot):
         if message.echo:
             return
 
-        # Registro detallado en consola para monitorizar actividad
         print(f"[CHAT] {message.author.name}: {message.content}")
         self.ultimo_mensaje = time.time()
         
