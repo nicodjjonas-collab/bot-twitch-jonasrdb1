@@ -10,7 +10,7 @@ from twitchio.ext import commands
 TOKEN = os.environ.get('TWITCH_TOKEN')
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT_NAME = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
-GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
+GROQ_KEY = os.environ.get('GROQ_KEY', '')
 
 trivia_on = False
 trivia_r = ""
@@ -152,24 +152,37 @@ def obtener_emote_aleatorio():
     return ""
 
 
-def consultar_gemini(pregunta):
-    if not GEMINI_KEY:
-        print("[ERROR IA] GEMINI_KEY no está configurada")
+def consultar_qwen(pregunta):
+    """Consulta a Qwen vía Groq API (formato OpenAI)"""
+    if not GROQ_KEY:
+        print("[ERROR IA] GROQ_KEY no está configurada")
         return None
     try:
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY
-        prompt = "Eres " + BOT_NAME + ", DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave y buen rollo. Pregunta: " + pregunta
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        
+        system_prompt = "Eres " + BOT_NAME + ", DJ y animador del chat de JonasRDB. Eres autónomo y hablas solo para animar el chat. Responde en español, máximo 2 frases cortas, con energía rave y buen rollo. Usa emojis de música cuando puedas."
+        
         payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 150, "temperature": 0.8}
+            "model": "qwen-2.5-32b",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": pregunta}
+            ],
+            "max_tokens": 150,
+            "temperature": 0.8
         }
+        
         data = json.dumps(payload).encode('utf-8')
-        req = Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + GROQ_KEY
+        }
+        req = Request(url, data=data, headers=headers, method='POST')
+        
         with urlopen(req, timeout=15) as response:
             result = json.loads(response.read().decode('utf-8'))
-            if "candidates" in result and len(result["candidates"]) > 0:
-                if "content" in result["candidates"][0] and "parts" in result["candidates"][0]["content"]:
-                    return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+            if "choices" in result and len(result["choices"]) > 0:
+                return result["choices"][0]["message"]["content"].strip()
             print("[ERROR IA] Respuesta inesperada: " + str(result))
             return None
     except Exception as e:
@@ -184,7 +197,7 @@ class Bot(commands.Bot):
 
     async def event_ready(self):
         print('Bot conectado a #' + CANAL)
-        print('Bot autónomo con IA activado')
+        print('Bot autónomo con Qwen IA activado')
         print('Emotes disponibles: ' + str(len(emotes_canal) + len(emotes_personalizados)))
         print('Menciona @' + BOT_NAME + ' para hablar con la IA')
         self.loop.create_task(self.monitorear_silencio())
@@ -206,7 +219,7 @@ class Bot(commands.Bot):
             pregunta = content.lower().replace(mencion, "").strip()
             if len(pregunta) > 2:
                 print("[IA] Procesando pregunta de " + user + ": " + pregunta)
-                respuesta = consultar_gemini(pregunta)
+                respuesta = consultar_qwen(pregunta)
                 if respuesta:
                     emote = obtener_emote_aleatorio()
                     if emote:
@@ -214,7 +227,7 @@ class Bot(commands.Bot):
                     else:
                         await message.channel.send("@" + user + " " + respuesta[:400])
                 else:
-                    if not GEMINI_KEY:
+                    if not GROQ_KEY:
                         await message.channel.send("@" + user + " La IA no está configurada. Contacta al admin.")
                     else:
                         await message.channel.send("@" + user + " Hubo un error con la IA. Intenta de nuevo.")
@@ -234,10 +247,10 @@ class Bot(commands.Bot):
                 channel = self.get_channel(CANAL)
                 if channel:
                     emote = obtener_emote_aleatorio()
-                    if random.random() > 0.5 and GEMINI_KEY:
+                    if random.random() > 0.5 and GROQ_KEY:
                         tema = random.choice(temas_ia)
                         print("[IA AUTÓNOMA] Generando respuesta sobre: " + tema)
-                        respuesta = consultar_gemini(tema)
+                        respuesta = consultar_qwen(tema)
                         if respuesta:
                             if emote:
                                 await channel.send(respuesta[:350] + " " + emote)
@@ -260,11 +273,11 @@ class Bot(commands.Bot):
         while True:
             await asyncio.sleep(TIEMPO_ENTRE_MENSAJES)
             channel = self.get_channel(CANAL)
-            if channel and GEMINI_KEY:
+            if channel and GROQ_KEY:
                 emote = obtener_emote_aleatorio()
                 tema = random.choice(temas_ia)
                 print("[IA AUTÓNOMA] Iniciando conversación sobre: " + tema)
-                respuesta = consultar_gemini(tema + " (Habla de forma natural, haz una pregunta al chat para que participen)")
+                respuesta = consultar_qwen(tema + " (Habla de forma natural, haz una pregunta al chat para que participen)")
                 if respuesta:
                     if emote:
                         await channel.send(respuesta[:350] + " " + emote)
