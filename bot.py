@@ -12,7 +12,6 @@ CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT_NAME = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
 GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
 
-# Variables de juegos
 trivia_on = False
 trivia_r = ""
 bpm_n = None
@@ -35,26 +34,19 @@ vf_activo = False
 vf_pregunta = ""
 vf_respuesta = ""
 
-# Control de actividad del chat
 ultimo_mensaje_chat = time.time()
 mensajes_automaticos_enviados = 0
 MAX_MENSAJES_SILENCIO = 5
 
-# EMOTES DEL CANAL - Añade aquí los emotes de tu canal
-# Puedes usar emotes por nombre (si son globales) o por ID numérica (emotes del canal)
 emotes_canal = [
-    "Kappa", "PogChamp", "LUL", "OMEGALUL", "KEKW", "monkaS", "Sadge", 
+    "Kappa", "PogChamp", "LUL", "OMEGALUL", "KEKW", "monkaS", "Sadge",
     "PepeHands", "FeelsGoodMan", "FeelsBadMan", "TriHard", "ResidentSleeper",
     "BibleThump", "Kreygasm", "NotLikeThis", "DansGame", "WutFace", "PJSalt",
-    "FailFish", "SwiftRage", "ArsonNoSexy", "CoolStoryBob", "ImGlitch",
-    "RitzMitz", "TheRinger", "VoHiYo", "WholeWheat", "BabyRage"
+    "FailFish", "SwiftRage", "CoolStoryBob", "VoHiYo", "WholeWheat", "BabyRage"
 ]
 
-# Si tienes emotes personalizados del canal, añade sus IDs aquí (ejemplo: "emote12345")
-# emotes_personalizados = ["emote12345", "emote67890"]
 emotes_personalizados = []
 
-# Temas para que la IA inicie conversaciones
 temas_ia = [
     "¿Qué os parece la sesión de hoy? ¿Está buena la música?",
     "¿De dónde sois todos? ¡Quiero saber de qué parte del mundo me escucháis!",
@@ -154,7 +146,6 @@ respuestas_bola = [
 
 
 def obtener_emote_aleatorio():
-    """Obtiene un emote aleatorio (global o personalizado)"""
     todos_emotes = emotes_canal + emotes_personalizados
     if todos_emotes:
         return random.choice(todos_emotes)
@@ -162,12 +153,12 @@ def obtener_emote_aleatorio():
 
 
 def consultar_gemini(pregunta):
-    """Consulta a la API de Gemini"""
     if not GEMINI_KEY:
+        print("[ERROR IA] GEMINI_KEY no está configurada")
         return None
     try:
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_KEY
-        prompt = "Eres " + BOT_NAME + ", DJ y animador del chat de JonasRDB. Eres autónomo y hablas solo para animar el chat. Responde en español, máximo 2 frases cortas, con energía rave y buen rollo. Pregunta o tema: " + pregunta
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY
+        prompt = "Eres " + BOT_NAME + ", DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave y buen rollo. Pregunta: " + pregunta
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"maxOutputTokens": 150, "temperature": 0.8}
@@ -176,7 +167,11 @@ def consultar_gemini(pregunta):
         req = Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
         with urlopen(req, timeout=15) as response:
             result = json.loads(response.read().decode('utf-8'))
-            return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+            if "candidates" in result and len(result["candidates"]) > 0:
+                if "content" in result["candidates"][0] and "parts" in result["candidates"][0]["content"]:
+                    return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+            print("[ERROR IA] Respuesta inesperada: " + str(result))
+            return None
     except Exception as e:
         print("[ERROR IA] " + str(e))
         return None
@@ -186,7 +181,7 @@ class Bot(commands.Bot):
 
     def __init__(self):
         super().__init__(token=TOKEN, prefix='!', initial_channels=[CANAL])
-    
+
     async def event_ready(self):
         print('Bot conectado a #' + CANAL)
         print('Bot autónomo con IA activado')
@@ -194,7 +189,7 @@ class Bot(commands.Bot):
         print('Menciona @' + BOT_NAME + ' para hablar con la IA')
         self.loop.create_task(self.monitorear_silencio())
         self.loop.create_task(self.ia_autonoma())
-    
+
     async def event_message(self, message):
         global ultimo_mensaje_chat, mensajes_automaticos_enviados
         if message.echo:
@@ -202,12 +197,10 @@ class Bot(commands.Bot):
         user = message.author.name
         content = message.content.strip()
         print("[" + user + "]: " + content)
-        
-        # Actualizar timestamp de actividad
+
         ultimo_mensaje_chat = time.time()
         mensajes_automaticos_enviados = 0
-        
-        # Detectar si mencionan al bot para responder con IA
+
         mencion = "@" + BOT_NAME.lower()
         if mencion in content.lower():
             pregunta = content.lower().replace(mencion, "").strip()
@@ -221,28 +214,26 @@ class Bot(commands.Bot):
                     else:
                         await message.channel.send("@" + user + " " + respuesta[:400])
                 else:
-                    await message.channel.send("@" + user + " La IA no está disponible ahora.")
-        
-        # Procesar comandos
+                    if not GEMINI_KEY:
+                        await message.channel.send("@" + user + " La IA no está configurada. Contacta al admin.")
+                    else:
+                        await message.channel.send("@" + user + " Hubo un error con la IA. Intenta de nuevo.")
+
         if content.startswith("!"):
             await self.procesar_comando(message, user, content)
-    
+
     async def monitorear_silencio(self):
-        """Monitorea el chat y envía mensajes cuando hay silencio"""
         global ultimo_mensaje_chat, mensajes_automaticos_enviados
-        TIEMPO_SILENCIO = 120  # 2 minutos de silencio
-        
+        TIEMPO_SILENCIO = 120
+
         while True:
             await asyncio.sleep(30)
-            
             tiempo_sin_actividad = time.time() - ultimo_mensaje_chat
-            
+
             if tiempo_sin_actividad > TIEMPO_SILENCIO and mensajes_automaticos_enviados < MAX_MENSAJES_SILENCIO:
                 channel = self.get_channel(CANAL)
                 if channel:
                     emote = obtener_emote_aleatorio()
-                    
-                    # 50% probabilidad de usar IA, 50% frases predefinidas
                     if random.random() > 0.5 and GEMINI_KEY:
                         tema = random.choice(temas_ia)
                         print("[IA AUTÓNOMA] Generando respuesta sobre: " + tema)
@@ -262,14 +253,12 @@ class Bot(commands.Bot):
                             await channel.send(frase)
                         mensajes_automaticos_enviados += 1
                         print("[SILENCIO] Frase enviada (" + str(mensajes_automaticos_enviados) + "/" + str(MAX_MENSAJES_SILENCIO) + ")")
-    
+
     async def ia_autonoma(self):
-        """La IA habla sola cada cierto tiempo para mantener el chat activo"""
-        TIEMPO_ENTRE_MENSAJES = 300  # 5 minutos entre mensajes automáticos de la IA
-        
+        TIEMPO_ENTRE_MENSAJES = 300
+
         while True:
             await asyncio.sleep(TIEMPO_ENTRE_MENSAJES)
-            
             channel = self.get_channel(CANAL)
             if channel and GEMINI_KEY:
                 emote = obtener_emote_aleatorio()
@@ -282,7 +271,7 @@ class Bot(commands.Bot):
                     else:
                         await channel.send(respuesta[:400])
                     print("[IA AUTÓNOMA] Conversación iniciada")
-    
+
     async def procesar_comando(self, message, user, content):
         global trivia_on, trivia_r, bpm_n, ttt_activo, ttt_x, ttt_o, ttt_turno, ttt_tablero
         global ahorcado_activo, ahorcado_palabra, ahorcado_adivinadas, ahorcado_intentos
@@ -409,9 +398,9 @@ class Bot(commands.Bot):
                     ganador = ttt_tablero[a]
                     break
             tab = ttt_tablero[0] + "|" + ttt_tablero[1] + "|" + ttt_tablero[2] + " - " + ttt_tablero[3] + "|" + ttt_tablero[4] + "|" + ttt_tablero[5] + " - " + ttt_tablero[6] + "|" + ttt_tablero[7] + "|" + ttt_tablero[8]
-            emote = obtener_emote_aleatorio()
             if not ganador and all(c in ["X", "O"] for c in ttt_tablero):
                 ganador = "Empate"
+            emote = obtener_emote_aleatorio()
             if ganador == "Empate":
                 if emote:
                     await message.channel.send("¡Empate! Tablero: " + tab + " " + emote)
