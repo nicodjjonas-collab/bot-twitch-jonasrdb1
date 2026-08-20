@@ -71,8 +71,8 @@ class Bot(commands.Bot):
                     contexto = " | ".join(self.ultimos_mensajes_chat[-4:])
                     prompt = f"Eres un colega fiestero en el chat del DJ Jonas RDB (música Remember, Trance, Hard Dance). Contexto: [{contexto}]. Último de {message.author.name}: '{message.content}'. Responde breve (máx 110 caracteres) con el emote {random.choice(self.emotes_twitch)}"
                     res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                    texto_ia = res.text.strip() if hasattr(res, 'text') else str(res)
-                    await canal_obj.send(texto_ia.replace('\n', ' ')[:130])
+                    texto_ia = res.text if hasattr(res, 'text') and res.text else str(res)
+                    await canal_obj.send(texto_ia.strip().replace('\n', ' ')[:130])
             except Exception as e:
                 print(f"Error IA espontánea: {e}")
 
@@ -87,7 +87,7 @@ class Bot(commands.Bot):
                         if ai_client:
                             prompt = f"Comenta algo animando la sesión de música Remember de Jonas RDB como espectador habitual. Breve y con el emote {random.choice(self.emotes_twitch)}"
                             res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                            msg = (res.text.strip() if hasattr(res, 'text') else str(res)).replace('\n', ' ')
+                            msg = (res.text if hasattr(res, 'text') and res.text else "¡Vaya temazos!").replace('\n', ' ')
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
                         await canal_obj.send(msg)
@@ -124,11 +124,20 @@ class Bot(commands.Bot):
                 model='gemini-2.5-flash',
                 contents=f"Responde breve, fiestero y amigable a {ctx.author.name} en el chat del DJ Jonas RDB (música Remember): {prompt}"
             )
-            texto_respuesta = response.text.strip() if hasattr(response, 'text') else str(response)
-            await ctx.send(f"@{ctx.author.name} {texto_respuesta[:400]}")
+            
+            # Extracción segura de texto para evitar fallos de formato en el SDK nuevo
+            texto_respuesta = ""
+            if hasattr(response, 'text') and response.text:
+                texto_respuesta = response.text
+            elif response.candidates and response.candidates[0].content.parts:
+                texto_respuesta = response.candidates[0].content.parts[0].text
+            else:
+                texto_respuesta = "¡Temarral absoluto! 🔥"
+
+            await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:400]}")
         except Exception as e:
-            print(f"[ERROR GEMINI EXPLICITO] Detalle: {e}")
-            await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
+            print(f"[ERROR GEMINI DETALLADO] {e}")
+            await ctx.send(f"@{ctx.author.name} ¡Sesión en marcha, máquina! 🎛️ (Error de eco en IA)")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
