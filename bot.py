@@ -10,35 +10,43 @@ CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
 GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
 
-trivia_on, trivia_r, bpm_n = False, "", None
+trivia_on = False
+trivia_r = ""
+bpm_n = None
 ultimo_mensaje = time.time()
 
-ttt_activo, ttt_x, ttt_o, ttt_turno = False, "", "", "X"
+ttt_activo = False
+ttt_x = ""
+ttt_o = ""
+ttt_turno = "X"
 ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
-ahorcado_activo, ahorcado_palabra, ahorcado_adivinadas, ahorcado_intentos, ahorcado_jugador = False, "", set(), 6, ""
+ahorcado_activo = False
+ahorcado_palabra = ""
+ahorcado_adivinadas = set()
+ahorcado_intentos = 6
+ahorcado_jugador = ""
 
-num_activo, num_secreto, num_jugador = False, 0, ""
+num_activo = False
+num_secreto = 0
+num_jugador = ""
 
-vf_activo, vf_pregunta, vf_respuesta = False, "", ""
+vf_activo = False
+vf_pregunta = ""
+vf_respuesta = ""
 
 frases_animar = [
     "¿Qué género os gusta más, techno o house? 🎧",
     "¿Alguien tiene algún set de Remember recomendado? 🔥",
-    "¿De dónde sois todos? ¡Saludad en el chat! 🌍",
+    "¿De dónde sois todos? ¡Saludad en el chat! ",
     "¿Cuál es vuestro BPM favorito para bailar? 💃",
-    "¿Techno duro o melódico? ¡Os leo! 👀",
+    "¿Techno duro o melódico? ¡Os leo! ",
     "¿Quién más está disfrutando de la sesión? 🏠",
     "¿Qué os parece la energía de hoy? ¡Subid el volumen! 🔊",
     "¡Escribe !comandos para ver todo lo que puedo hacer!"
 ]
 
-palabras_ahorcado = [
-    "techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave",
-    "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador",
-    "acido", "detroit", "ibiza", "berlin", "minimal", "progressive",
-    "hardcore", "remember", "makina", "eurodance", "disco"
-]
+palabras_ahorcado = ["techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave", "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador", "acido", "detroit", "ibiza", "berlin", "minimal", "progressive", "hardcore", "remember", "makina", "eurodance", "disco"]
 
 preguntas_vf = [
     ("Los Beatles se originaron en la ciudad de Liverpool.", "verdadero"),
@@ -78,32 +86,10 @@ preguntas_vf = [
     ("El grupo 'Daft Punk' es originario de Francia.", "verdadero")
 ]
 
-retos = [
-    "Pon la canción que más te haga bailar ahora mismo 🎵",
-    "Di tu género favorito y por qué 🎧",
-    "Cuéntanos tu mejor experiencia en un rave 🎪",
-    "Nombra 3 DJs que te encanten 🎤",
-    "¿Vinilo o digital? Defiende tu postura 💿",
-    "Describe tu sesión perfecta en 3 palabras ✨",
-    "¿Cuál fue el último track que te voló la cabeza? 🤯",
-    "Recomienda un set para esta noche 🔥"
-]
-verdades = [
-    "¿Cuál es tu guilty pleasure musical? 🎶",
-    "¿Alguna vez has llorado con una canción? 😢",
-    "¿Qué género no soportas? 🤔",
-    "¿Cuál es el track más raro que tienes? 🦄",
-    "¿Techno a las 8am o house a las 4am? ⏰",
-    "¿Tu momento más épico en una pista? 🕺",
-    "¿Qué DJ te hubiera gustado ver en vivo? 🎟️",
-    "¿Vinilo más caro que has comprado? 💸"
-]
-respuestas_bola = [
-    "Definitivamente sí 🔮", "Sin duda ✅", "Sí, totalmente ✅",
-    "Las señales apuntan a que sí ✨", "Pregunta de nuevo más tarde 🔄",
-    "Mejor no te digo ahora 🤫", "Mis fuentes dicen que no ❌",
-    "Muy dudoso... 🤔", "No cuentes con ello 🚫", "El universo dice que sí 🌟"
-]
+retos = ["Pon la canción que más te haga bailar ahora mismo 🎵", "Di tu género favorito y por qué 🎧", "Cuéntanos tu mejor experiencia en un rave 🎪", "Nombra 3 DJs que te encanten ", "¿Vinilo o digital? Defiende tu postura 💿", "Describe tu sesión perfecta en 3 palabras ✨", "¿Cuál fue el último track que te voló la cabeza? 🤯", "Recomienda un set para esta noche 🔥"]
+verdades = ["¿Cuál es tu guilty pleasure musical? 🎶", "¿Alguna vez has llorado con una canción? 😢", "¿Qué género no soportas? 🤔", "¿Cuál es el track más raro que tienes? 🦄", "¿Techno a las 8am o house a las 4am? ⏰", "¿Tu momento más épico en una pista? ", "¿Qué DJ te hubiera gustado ver en vivo? 🎟️", "¿Vinilo más caro que has comprado? 💸"]
+respuestas_bola = ["Definitivamente sí 🔮", "Sin duda ✅", "Sí, totalmente ✅", "Las señales apuntan a que sí ✨", "Pregunta de nuevo más tarde 🔄", "Mejor no te digo ahora 🤫", "Mis fuentes dicen que no ❌", "Muy dudoso... ", "No cuentes con ello 🚫", "El universo dice que sí 🌟"]
+
 
 def conectar():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -118,10 +104,12 @@ def conectar():
     s.send(f"JOIN #{CANAL}\r\n".encode())
     return s
 
+
 def enviar(s, msg):
     print(f"[ENVIANDO] {msg}")
     s.send(f"PRIVMSG #{CANAL} :{msg}\r\n".encode())
     time.sleep(1.5)
+
 
 def ia_gemini(preg):
     if not GEMINI_KEY:
@@ -141,8 +129,10 @@ def ia_gemini(preg):
         print(f"[ERROR IA] {e}")
     return None
 
+
 def ttt_imprimir():
     return f"{ttt_tablero[0]}|{ttt_tablero[1]}|{ttt_tablero[2]}\n-----\n{ttt_tablero[3]}|{ttt_tablero[4]}|{ttt_tablero[5]}\n-----\n{ttt_tablero[6]}|{ttt_tablero[7]}|{ttt_tablero[8]}"
+
 
 def ttt_verificar():
     ganar = [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]
@@ -153,28 +143,31 @@ def ttt_verificar():
         return "Empate"
     return None
 
+
 def dibujar_ahorcado(intentos):
     fallos = 6 - intentos
     dibujo = "🪢"
-    if fallos >= 1: dibujo += "🟡"
+    if fallos >= 1: dibujo += ""
     if fallos >= 2: dibujo += "🟩"
     if fallos >= 3: dibujo += "🟦"
-    if fallos >= 4: dibujo += "🟦"
+    if fallos >= 4: dibujo += ""
     if fallos >= 5: dibujo += "🟪"
     if fallos >= 6: dibujo += "🟪💀"
     return dibujo
+
 
 def ahorcado_estado():
     estado = " ".join([l if l in ahorcado_adivinadas else "_" for l in ahorcado_palabra])
     letras = ", ".join(sorted(ahorcado_adivinadas)) if ahorcado_adivinadas else "ninguna"
     return f"{dibujar_ahorcado(ahorcado_intentos)} | {estado} | Intentos: {ahorcado_intentos} | Letras: {letras}"
 
+
 def comando(s, user, cmd, arg):
     global trivia_on, trivia_r, bpm_n, ttt_activo, ttt_x, ttt_o, ttt_turno, ttt_tablero
     global ahorcado_activo, ahorcado_palabra, ahorcado_adivinadas, ahorcado_intentos, ahorcado_jugador
     global num_activo, num_secreto, num_jugador
     global vf_activo, vf_pregunta, vf_respuesta
-    
+
     if cmd in ["!comandos", "!ayuda", "!help"]:
         enviar(s, "📜 INFO: !redes, !sobre, !normas, !prime. 🎉 DIVERSIÓN: !festero, !vf, !reto, !bola [pregunta], !dado, !moneda, !ppt [piedra/papel/tijera].")
         enviar(s, "🎮 JUEGOS: !3enraya (!unirse, !mover), !ahorcado (!letra), !numero (!adivinanum), !trivia (!respuesta), !ruleta, !bpm (!adivinarbpm).")
@@ -183,13 +176,13 @@ def comando(s, user, cmd, arg):
     elif cmd == "!sobre":
         enviar(s, "🎧 JONAS RDB // HARD DANCE. DJ alicantino criado entre vinilos desde 1994. +30 años haciendo vibrar pistas con Hard Dance, Remember y pura energía rave. 🚀")
     elif cmd == "!normas":
-        enviar(s, "⚠️ NORMAS: 1️⃣ Lenguaje respetuoso. 2️⃣ Emotes sin ofender. 3️⃣ Críticas constructivas SÍ, ataques NO. 🚫 TOLERANCIA CERO: amenazas, acoso, doxxing, odio o spam. ⛔ Incumplir = BAN PERMANENTE. ¡Disfruta! 🎧")
+        enviar(s, "⚠️ NORMAS: 1️ Lenguaje respetuoso. 2️⃣ Emotes sin ofender. 3️⃣ Críticas constructivas SÍ, ataques NO. 🚫 TOLERANCIA CERO: amenazas, acoso, doxxing, odio o spam. ⛔ Incumplir = BAN PERMANENTE. ¡Disfruta! 🎧")
     elif cmd in ["!prime", "!suscri"]:
         enviar(s, "👑 ¡Suscríbete GRATIS con Twitch Prime! Apoya el canal sin coste extra, desbloquea emotes y ayuda a que la fiesta no pare. ¡Gracias! ❤️")
     elif cmd in ["!festero", "!fiesta", "!animado"]:
         p = random.randint(0, 100)
         if p >= 85: frase = f"🔥 ¡@{user} está al {p}% de festero! ¡A ROMPERLA! 🎉"
-        elif p >= 65: frase = f"🎉 @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
+        elif p >= 65: frase = f" @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
         elif p >= 45: frase = f"🎶 @{user} está al {p}% de festero. Vas bien, ¡sigue bailando! 💃"
         elif p >= 25: frase = f"😐 @{user} está al {p}% de festero. ¡Despierta que empieza la sesión! ⚡"
         else: frase = f"😴 @{user} está al {p}% sin ganas... ¿Necesitas un Red Bull? 🥱"
@@ -261,7 +254,7 @@ def comando(s, user, cmd, arg):
     elif cmd == "!cancelar3":
         if ttt_activo and (user == ttt_x or user == CANAL):
             ttt_activo = False
-            enviar(s, "🚫 Partida cancelada.")
+            enviar(s, " Partida cancelada.")
         else:
             enviar(s, "No hay partida activa.")
     elif cmd == "!tablero":
@@ -300,7 +293,7 @@ def comando(s, user, cmd, arg):
         else:
             ahorcado_intentos -= 1
             if ahorcado_intentos <= 0:
-                enviar(s, f"💀 ¡PERDISTE @{user}! {dibujar_ahorcado(0)} La palabra era '{ahorcado_palabra}'. ¡Escribe !ahorcado para otra!")
+                enviar(s, f" ¡PERDISTE @{user}! {dibujar_ahorcado(0)} La palabra era '{ahorcado_palabra}'. ¡Escribe !ahorcado para otra!")
                 ahorcado_activo = False
             else:
                 enviar(s, f"❌ '{letra}' NO está. Estado: {ahorcado_estado()}")
@@ -328,12 +321,12 @@ def comando(s, user, cmd, arg):
                 enviar(s, "El número debe ser entre 1 y 100.")
                 return
             if n == num_secreto:
-                enviar(s, f"🎉 ¡@{user} ACERTÓ! Era {num_secreto}. ¡Escribe !numero para otra!")
+                enviar(s, f" ¡@{user} ACERTÓ! Era {num_secreto}. ¡Escribe !numero para otra!")
                 num_activo = False
             elif n < num_secreto:
                 enviar(s, f"⬆️ @{user}: el número es MÁS ALTO que {n}.")
             else:
-                enviar(s, f"⬇️ @{user}: el número es MÁS BAJO que {n}.")
+                enviar(s, f"️ @{user}: el número es MÁS BAJO que {n}.")
         except:
             enviar(s, "Escribe un número válido.")
     elif cmd in ["!ppt", "!piedra"]:
@@ -349,10 +342,10 @@ def comando(s, user, cmd, arg):
             resultado = f"🎉 ¡@{user} GANA! {eleccion_user} vence a {eleccion_bot}."
         else:
             resultado = f"😈 ¡Gana el bot! {eleccion_bot} vence a {eleccion_user}."
-        enviar(s, f"🪨📄✂️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
+        enviar(s, f"🪨📄️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
     elif cmd == "!dado":
         resultado = random.randint(1, 6)
-        emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
+        emojis = {1: "⚀", 2: "", 3: "⚂", 4: "⚃", 5: "", 6: "⚅"}
         enviar(s, f"🎲 @{user} tiró el dado: {emojis[resultado]} {resultado}")
     elif cmd == "!moneda":
         resultado = random.choice(["CARA 👑", "CRUZ ✝️"])
@@ -363,7 +356,7 @@ def comando(s, user, cmd, arg):
             return
         enviar(s, f"🔮 @{user}: {random.choice(respuestas_bola)}")
     elif cmd in ["!reto", "!verdad"]:
-        tipo = random.choice(["RETO 🎯", "VERDAD 💬"])
+        tipo = random.choice(["RETO ", "VERDAD 💬"])
         contenido = random.choice(retos) if tipo.startswith("RETO") else random.choice(verdades)
         enviar(s, f"🎭 @{user} te toca un {tipo}: {contenido}")
     elif cmd == "!trivia" and not trivia_on:
@@ -382,12 +375,12 @@ def comando(s, user, cmd, arg):
         enviar(s, f"🎲 ¡Ruleta! Género: {g}. ¡Pon una canción!")
     elif cmd == "!bpm":
         bpm_n = random.randint(120, 174)
-        enviar(s, f"🎧 Adivina el BPM (120-174): !adivinarbpm [numero]")
+        enviar(s, f" Adivina el BPM (120-174): !adivinarbpm [numero]")
     elif cmd == "!adivinarbpm" and bpm_n is not None:
         try:
             n = int(arg)
             if n == bpm_n:
-                enviar(s, f"🎉 ¡EXACTO @{user}! Era {bpm_n} BPM.")
+                enviar(s, f" ¡EXACTO @{user}! Era {bpm_n} BPM.")
                 bpm_n = None
             elif abs(n - bpm_n) <= 5:
                 enviar(s, f"🔥 ¡Muy cerca @{user}! A {abs(n-bpm_n)} BPM.")
@@ -396,24 +389,25 @@ def comando(s, user, cmd, arg):
         except:
             enviar(s, "Escribe un número válido.")
 
+
 def main():
     global ultimo_mensaje
     print("🚀 Bot de Twitch para la nube (Railway)")
-    print(f"📺 Canal: #{CANAL}")
+    print(f" Canal: #{CANAL}")
     print(f"🤖 Bot: {BOT}")
     print(f"🧠 Gemini: {'✅ Configurado' if GEMINI_KEY else '❌ No configurado (IA desactivada)'}")
-    
+
     s = conectar()
     print(f"✅ Bot listo en #{CANAL}!")
     print("🎮 Escribe en Twitch: !comandos")
     ultimo_mensaje = time.time()
-    
+
     while True:
         try:
             if time.time() - ultimo_mensaje > 180:
                 enviar(s, random.choice(frases_animar))
                 ultimo_mensaje = time.time()
-            
+
             data = s.recv(4096).decode('utf-8', errors='ignore')
             if data.startswith("PING"):
                 s.send("PONG\r\n".encode())
@@ -424,7 +418,7 @@ def main():
                     user = parts[0].split("!")[0][1:]
                     msg = parts[3][1:].strip()
                     print(f"[{user}]: {msg}")
-                    
+
                     if f"@{BOT.lower()}" in msg.lower():
                         preg = msg.lower().replace(f"@{BOT.lower()}", "").strip()
                         if len(preg) > 2:
@@ -432,7 +426,7 @@ def main():
                             resp = ia_gemini(preg)
                             if resp:
                                 enviar(s, resp[:400])
-                    
+
                     if msg.startswith("!"):
                         pc = msg.split(" ", 1)
                         comando(s, user, pc[0].lower(), pc[1] if len(pc) > 1 else "")
@@ -444,6 +438,7 @@ def main():
                 s = conectar()
             except:
                 pass
+
 
 if __name__ == "__main__":
     main()
