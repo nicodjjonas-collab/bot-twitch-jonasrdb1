@@ -70,8 +70,8 @@ class Bot(commands.Bot):
                 if canal_obj:
                     contexto = " | ".join(self.ultimos_mensajes_chat[-4:])
                     prompt = f"Eres un colega fiestero en el chat del DJ Jonas RDB (música Remember, Trance, Hard Dance). Contexto: [{contexto}]. Último de {message.author.name}: '{message.content}'. Responde breve (máx 110 caracteres) con el emote {random.choice(self.emotes_twitch)}"
-                    res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                    texto_ia = res.text if hasattr(res, 'text') and res.text else str(res)
+                    res = await ai_client.aio.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+                    texto_ia = res.text if res and res.text else "¡Temarral! 🔥"
                     await canal_obj.send(texto_ia.strip().replace('\n', ' ')[:130])
             except Exception as e:
                 print(f"Error IA espontánea: {e}")
@@ -86,8 +86,8 @@ class Bot(commands.Bot):
                     if canal_obj:
                         if ai_client:
                             prompt = f"Comenta algo animando la sesión de música Remember de Jonas RDB como espectador habitual. Breve y con el emote {random.choice(self.emotes_twitch)}"
-                            res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                            msg = (res.text if hasattr(res, 'text') and res.text else "¡Vaya temazos!").replace('\n', ' ')
+                            res = await ai_client.aio.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+                            msg = (res.text if res and res.text else "¡Vaya temazos!").replace('\n', ' ')
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
                         await canal_obj.send(msg)
@@ -95,7 +95,7 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # Comandos (Lista completa)
+    # Comandos
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
         await ctx.send("🤖 IA: !ia | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 📌 Info: !normas, !redes, !prime | 🎲 Diversión: !festero, !amor, !ruleta, !ppt, !moneda, !bola8")
@@ -120,24 +120,15 @@ class Bot(commands.Bot):
         if not prompt: 
             return await ctx.send(f"@{ctx.author.name} Escribe algo: !ia <pregunta>")
         try:
-            response = ai_client.models.generate_content(
+            response = await ai_client.aio.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=f"Responde breve, fiestero y amigable a {ctx.author.name} en el chat del DJ Jonas RDB (música Remember): {prompt}"
             )
-            
-            # Extracción segura de texto para evitar fallos de formato en el SDK nuevo
-            texto_respuesta = ""
-            if hasattr(response, 'text') and response.text:
-                texto_respuesta = response.text
-            elif response.candidates and response.candidates[0].content.parts:
-                texto_respuesta = response.candidates[0].content.parts[0].text
-            else:
-                texto_respuesta = "¡Temarral absoluto! 🔥"
-
+            texto_respuesta = response.text if response and response.text else "¡Temarral absoluto! 🔥"
             await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:400]}")
         except Exception as e:
             print(f"[ERROR GEMINI DETALLADO] {e}")
-            await ctx.send(f"@{ctx.author.name} ¡Sesión en marcha, máquina! 🎛️ (Error de eco en IA)")
+            await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
