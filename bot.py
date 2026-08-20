@@ -49,12 +49,15 @@ class Bot(commands.Bot):
         self.trivia_respuesta = ""
 
     async def event_ready(self):
-        print(f'=== BOT CONECTADO CORRECTAMENTE ===')
+        print('=== BOT CONECTADO CORRECTAMENTE A TWITCH ===')
         print(f'Canal objetivo: {CANAL}')
+
+    async def event_channel_joined(self, channel: twitchio.Channel):
+        print(f'=== UNIDO EXITOSAMENTE AL CANAL: {channel.name} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
 
     async def bucle_autonomo_chat(self):
-        """Rutina autónoma segura para romper el hielo en el chat"""
+        """Rutina autónoma para romper el hielo si el chat está inactivo"""
         await asyncio.sleep(15)
         while True:
             try:
@@ -85,7 +88,7 @@ class Bot(commands.Bot):
         if message.echo:
             return
 
-        # Log en consola para depurar si Twitch pasa los mensajes al bot
+        # Registro en consola para monitorizar actividad y comprobar recepción
         print(f"[CHAT] {message.author.name}: {message.content}")
 
         self.ultimo_mensaje = time.time()
@@ -96,7 +99,7 @@ class Bot(commands.Bot):
 
         await self.handle_commands(message)
 
-        # Intervención espontánea (25% de probabilidad en mensajes normales de la gente)
+        # Intervención espontánea (25% de probabilidad en mensajes del chat)
         if not message.content.startswith('!') and random.random() < 0.25 and ai_client:
             try:
                 canal_obj = self.get_channel(CANAL)
@@ -116,7 +119,7 @@ class Bot(commands.Bot):
                 print(f"Error en intervención espontánea: {e}")
 
     # ----------------------------------------
-    # COMANDOS DE AYUDA E INFORMACIÓN
+    # COMANDOS DE INFORMACIÓN Y AYUDA
     # ----------------------------------------
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
@@ -139,7 +142,7 @@ class Bot(commands.Bot):
         await ctx.send("🔔 ¡SUSCRÍBETE CON AMAZON PRIME! Consigue insignias, emotes exclusivos y apoya las sesiones de JONAS RDB // HARD DANCE 🖤")
 
     # ----------------------------------------
-    # IA MANUAL (!ia)
+    # INTELIGENCIA ARTIFICIAL MANUAL (!ia)
     # ----------------------------------------
     @commands.command(name='ia')
     async def ia_command(self, ctx: commands.Context):
@@ -159,7 +162,7 @@ class Bot(commands.Bot):
             await ctx.send(f"@{ctx.author.name} ¡Uy, me he quedado rayado con el beat! Prueba otra vez. 😅")
 
     # ----------------------------------------
-    # JUEGOS Y COMANDOS DE ENTRETENIMIENTO
+    # MINIJUEGOS Y ENTRETENIMIENTO
     # ----------------------------------------
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
