@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import json
 import asyncio
 import traceback
 import twitchio
@@ -37,6 +38,10 @@ class Bot(commands.Bot):
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.ultimos_mensajes_chat = []  
         
+        # Archivo para guardar comandos personalizados creados desde el chat
+        self.archivo_comandos = "comandos_custom.json"
+        self.comandos_custom = self.cargar_comandos_custom()
+
         # Estados de los minijuegos
         self.ahorcado_activo = False
         self.ahorcado_palabra = ""
@@ -50,6 +55,24 @@ class Bot(commands.Bot):
         self.vf_respuesta = ""
         self.trivia_activo = False
         self.trivia_respuesta = ""
+
+    def cargar_comandos_custom(self):
+        """Carga los comandos personalizados desde un archivo JSON local."""
+        if os.path.exists(self.archivo_comandos):
+            try:
+                with open(self.archivo_comandos, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Error al cargar comandos custom: {e}")
+        return {}
+
+    def guardar_comandos_custom(self):
+        """Guarda los comandos personalizados en el archivo JSON."""
+        try:
+            with open(self.archivo_comandos, 'w', encoding='utf-8') as f:
+                json.dump(self.comandos_custom, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"Error al guardar comandos custom: {e}")
 
     async def event_ready(self):
         print(f'=== ¡BOT CONECTADO Y ESCUCHANDO EN EL CANAL: {CANAL} ===')
@@ -67,14 +90,25 @@ class Bot(commands.Bot):
 
         self.ultimo_mensaje = time.time()
         
-        # Guardamos el historial reciente para enterarnos de toda la charla
+        # Guardar historial reciente para enterarse de la charla
         self.ultimos_mensajes_chat.append(f"{message.author.name}: {message.content}")
         if len(self.ultimos_mensajes_chat) > 15:
             self.ultimos_mensajes_chat.pop(0)
 
+        # 1. Comprobar si el mensaje ejecuta un comando personalizado creado desde el chat
+        content = message.content.strip()
+        if content.startswith('!'):
+            partes = content[1:].split(' ', 1)
+            nombre_cmd = partes[0].lower()
+            
+            if nombre_cmd in self.comandos_custom:
+                await message.channel.send(self.comandos_custom[nombre_cmd])
+                return
+
+        # 2. Procesar comandos fijos del bot
         await self.handle_commands(message)
 
-        # Intervención espontánea: participa en la conversación de la gente (25% de probabilidad)
+        # 3. Intervención espontánea de la IA en la charla general (25% de probabilidad)
         if not message.content.startswith('!') and random.random() < 0.25 and ai_client:
             try:
                 canal_obj = self.get_channel(CANAL)
@@ -128,10 +162,51 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # Comandos principales
+    # --- COMANDOS ADMINISTRATIVOS PARA CREAR/BORRAR DESDE EL CHAT ---
+    @commands.command(name='addcmd')
+    async def cmd_add(self, ctx: commands.Context):
+        if not ctx.author.is_mod and ctx.author.name.lower() != CANAL.lower():
+            return await ctx.send(f"@{ctx.author.name} No tienes permisos para crear comandos.")
+        
+        partes = ctx.message.content.split(' ', 2)
+        if len(partes) < 3:
+            return await ctx.send(f"@{ctx.author.name} Uso correcto: !addcmd <nombre> <respuesta>")
+        
+        nombre = partes[1].lower().replace('!', '')
+        respuesta = partes[2]
+        
+        self.comandos_custom[nombre] = respuesta
+        self.guardar_comandos_custom()
+        await ctx.send(f"✅ ¡Comando '!{nombre}' creado correctamente, máquina!")
+
+    @commands.command(name='delcmd')
+    async def cmd_del(self, ctx: commands.Context):
+        if not ctx.author.is_mod and ctx.author.name.lower() != CANAL.lower():
+            return await ctx.send(f"@{ctx.author.name} No tienes permisos para borrar comandos.")
+        
+        partes = ctx.message.content.split(' ', 1)
+        if len(partes) < 2:
+            return await ctx.send(f"@{ctx.author.name} Uso correcto: !delcmd <nombre>")
+        
+        nombre = partes[1].lower().replace('!', '')
+        
+        if nombre in self.comandos_custom:
+            del self.comandos_custom[nombre]
+            self.guardar_comandos_custom()
+            await ctx.send(f"🗑️ ¡Comando '!{nombre}' borrado con éxito!")
+        else:
+            await ctx.send(f"❌ El comando '!{nombre}' no existe en los personalizados.")
+
+    # Comandos principales fijos
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send("🤖 Háblame con !ia o !hola | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 📌 Info: !normas, !redes, !prime | 🎲 !festero, !amor, !ruleta, !ppt, !moneda, !bola8")
+        # Si es moderador o el streamer, muestra también los comandos personalizados creados por chat
+        es_admin_o_mod = ctx.author.is_mod or ctx.author.name.lower() == CANAL.lower()
+        
+        customs = ", ".join([f"!{c}" for c in self.comandos_custom.keys()])
+        custom_txt = f" | 📌 Custom (Mod): {customs}" if (es_admin_o_mod and customs) else ""
+        
+        await ctx.send(f"🤖 IA: !ia o !hola | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 🎲 Extras: !festero, !amor, !ruleta{custom_txt}")
 
     @commands.command(name='normas')
     async def cmd_normas(self, ctx: commands.Context):
