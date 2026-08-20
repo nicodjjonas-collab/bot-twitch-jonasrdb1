@@ -56,7 +56,7 @@ class Bot(commands.Bot):
         print(f'Canal objetivo: {CANAL}')
 
     async def event_channel_joined(self, channel):
-        print(f'=== UNIDO EXITOSAMENTE AL CANAL: {CANAL} ===')
+        print(f'=== UNIDO EXITOSAMENTE AL CANAL: {channel.name} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
 
     async def bucle_autonomo_chat(self):
@@ -345,5 +345,11 @@ if __name__ == '__main__':
     if not TOKEN or not CLIENT_ID or not CLIENT_SECRET:
         print("ERROR CRÍTICO: Faltan variables de entorno esenciales para conectar con Twitch.")
     else:
-        bot = Bot()
-        bot.run()
+        # Bucle de persistencia para evitar que el contenedor se apague si Twitch desconecta el socket
+        while True:
+            try:
+                bot = Bot()
+                bot.run()
+            except Exception as e:
+                print(f"[RECONEXIÓN] Error crítico detectado: {e}. Reiniciando bot en 5 segundos...")
+                time.sleep(5)
