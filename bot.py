@@ -6,7 +6,6 @@ import traceback
 import twitchio
 from twitchio.ext import commands
 from google import genai
-from google.genai import types
 
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'jonasrdb').lower() 
@@ -71,11 +70,7 @@ class Bot(commands.Bot):
                 if canal_obj:
                     contexto = " | ".join(self.ultimos_mensajes_chat[-4:])
                     prompt = f"Eres un colega fiestero en el chat del DJ Jonas RDB (música Remember, Trance, Hard Dance). Contexto: [{contexto}]. Último de {message.author.name}: '{message.content}'. Responde breve (máx 110 caracteres) con el emote {random.choice(self.emotes_twitch)}"
-                    res = ai_client.models.generate_content(
-                        model='gemini-2.0-flash', 
-                        contents=prompt,
-                        config=types.GenerateContentConfig()
-                    )
+                    res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                     texto_ia = res.text.strip() if hasattr(res, 'text') else str(res)
                     await canal_obj.send(texto_ia.replace('\n', ' ')[:130])
             except Exception as e:
@@ -91,11 +86,7 @@ class Bot(commands.Bot):
                     if canal_obj:
                         if ai_client:
                             prompt = f"Comenta algo animando la sesión de música Remember de Jonas RDB como espectador habitual. Breve y con el emote {random.choice(self.emotes_twitch)}"
-                            res = ai_client.models.generate_content(
-                                model='gemini-2.0-flash', 
-                                contents=prompt,
-                                config=types.GenerateContentConfig()
-                            )
+                            res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                             msg = (res.text.strip() if hasattr(res, 'text') else str(res)).replace('\n', ' ')
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
@@ -130,14 +121,13 @@ class Bot(commands.Bot):
             return await ctx.send(f"@{ctx.author.name} Escribe algo: !ia <pregunta>")
         try:
             response = ai_client.models.generate_content(
-                model='gemini-2.0-flash',
-                contents=f"Responde breve, fiestero y amigable a {ctx.author.name} en el chat del DJ Jonas RDB (música Remember): {prompt}",
-                config=types.GenerateContentConfig()
+                model='gemini-2.5-flash',
+                contents=f"Responde breve, fiestero y amigable a {ctx.author.name} en el chat del DJ Jonas RDB (música Remember): {prompt}"
             )
             texto_respuesta = response.text.strip() if hasattr(response, 'text') else str(response)
             await ctx.send(f"@{ctx.author.name} {texto_respuesta[:400]}")
         except Exception as e:
-            print(f"[ERROR GEMINI] Detalle: {e}")
+            print(f"[ERROR GEMINI EXPLICITO] Detalle: {e}")
             await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
 
     @commands.command(name='festero')
