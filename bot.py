@@ -5,21 +5,23 @@ import random
 import os
 import requests
 
+# CONFIGURACIÓN
 TOKEN = os.environ.get('TWITCH_TOKEN', 'oauth:lrrg261q2uk90yfsia57pbhms9m8dk')
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
 GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
 
+# Variables de juegos
 trivia_on = False
 trivia_r = ""
 bpm_n = None
 ultimo_mensaje = time.time()
 
 ttt_activo = False
-ttt_x =  " "
-ttt_o =  " "
-ttt_turno =  "X "
-ttt_tablero = [ "1 ",  "2 ",  "3 ",  "4 ",  "5 ",  "6 ",  "7 ",  "8 ",  "9 "]
+ttt_x = ""
+ttt_o = ""
+ttt_turno = "X"
+ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 ahorcado_activo = False
 ahorcado_palabra = ""
@@ -36,89 +38,94 @@ vf_pregunta = ""
 vf_respuesta = ""
 
 frases_animar = [
-    "¿Qué género os gusta más, techno o house?  ",
-    "¿Alguien tiene algún set de Remember recomendado?  ",
-    "¿De dónde sois todos? ¡Saludad en el chat!  ",
-    "¿Cuál es vuestro BPM favorito para bailar? 💃 ",
-    "¿Techno duro o melódico? ¡Os leo! 👀 ",
-    "¿Quién más está disfrutando de la sesión?  ",
-    "¿Qué os parece la energía de hoy? ¡Subid el volumen! 🔊 ",
-    "¡Escribe !comandos para ver todo lo que puedo hacer! "
+    "¿Qué género os gusta más, techno o house? 🎧",
+    "¿Alguien tiene algún set de Remember recomendado? 🔥",
+    "¿De dónde sois todos? ¡Saludad en el chat! 🌍",
+    "¿Cuál es vuestro BPM favorito para bailar? 💃",
+    "¿Techno duro o melódico? ¡Os leo! 👀",
+    "¿Quién más está disfrutando de la sesión? 🏠",
+    "¿Qué os parece la energía de hoy? ¡Subid el volumen! 🔊",
+    "¡Escribe !comandos para ver todo lo que puedo hacer!"
 ]
 
-palabras_ahorcado = [ "techno ",  "house ",  "trance ",  "vinilo ",  "mezcla ",  "bpm ",  "rave ",  "fiesta ",  "bass ",  "drop ",  "set ",  "dj ",  "platina ",  "sintetizador ",  "acido ",  "detroit ",  "ibiza ",  "berlin ",  "minimal ",  "progressive ",  "hardcore ",  "remember ",  "makina ",  "eurodance ",  "disco "]
+palabras_ahorcado = [
+    "techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave",
+    "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador",
+    "acido", "detroit", "ibiza", "berlin", "minimal", "progressive",
+    "hardcore", "remember", "makina", "eurodance", "disco"
+]
 
 preguntas_vf = [
-    ( "Los Beatles se originaron en la ciudad de Liverpool. ",  "verdadero "),
-    ( "El piano estándar tiene 88 teclas. ",  "verdadero "),
-    ( "Michael Jackson es conocido mundialmente como el 'Rey del Rock'. ",  "falso "),
-    ( "El reguetón se originó principalmente en Puerto Rico. ",  "verdadero "),
-    ( "Beethoven quedó completamente sordo al final de su vida. ",  "verdadero "),
-    ( "La guitarra eléctrica se inventó antes que la guitarra acústica. ",  "falso "),
-    ( "El festival de Woodstock tuvo lugar en el año 1969. ",  "verdadero "),
-    ( "Shakira es originaria de México. ",  "falso "),
-    ( "El saxofón está clasificado como un instrumento de viento madera. ",  "verdadero "),
-    ( "El flamenco es un género musical originario de Andalucía, España. ",  "verdadero "),
-    ( "El violín tiene 6 cuerdas. ",  "falso "),
-    ( "El rap y el hip-hop son exactamente el mismo género musical. ",  "falso "),
-    ( "David Bowie es el creador del personaje 'Ziggy Stardust'. ",  "verdadero "),
-    ( "La ópera se originó históricamente en Italia. ",  "verdadero "),
-    ( "El sintetizador Moog fue fundamental en el desarrollo de la música electrónica. ",  "verdadero "),
-    ( "El grupo 'Queen' fue fundado por Freddie Mercury y Paul McCartney. ",  "falso "),
-    ( "El género Techno nació en la ciudad de Detroit, Estados Unidos. ",  "verdadero "),
-    ( "El mariachi es un género musical tradicional de Argentina. ",  "falso "),
-    ( "El grupo 'Nirvana' es el máximo exponente del Grunge. ",  "verdadero "),
-    ( "Mozart compuso su primera sinfonía a los 8 años. ",  "verdadero "),
-    ( "El bajo eléctrico tiene normalmente 4 cuerdas. ",  "verdadero "),
-    ( "El género 'Dubstep' se caracteriza por sus bajos pesados y ritmos a medio tiempo. ",  "verdadero "),
-    ( "Elvis Presley es conocido como 'El Rey del Pop'. ",  "falso "),
-    ( "La banda 'The Rolling Stones' se formó en los años 80. ",  "falso "),
-    ( "El 'Hardstyle' es un subgénero del EDM con un BPM típico de 150. ",  "verdadero "),
-    ( "El compositor Johann Sebastian Bach era alemán. ",  "verdadero "),
-    ( "El 'Trap' musical se originó en el sur de Estados Unidos. ",  "verdadero "),
-    ( "La flauta travesera es un instrumento de viento metal. ",  "falso "),
-    ( "El álbum 'Thriller' de Michael Jackson es el más vendido de la historia. ",  "verdadero "),
-    ( "El género 'Salsa' tiene sus raíces principales en el Caribe y Nueva York. ",  "verdadero "),
-    ( "El DJ Tiesto es originario de Alemania. ",  "falso "),
-    ( "El 'Drum and Bass' se caracteriza por ritmos rápidos de breakbeat. ",  "verdadero "),
-    ( "Beethoven escribió 9 sinfonías. ",  "verdadero "),
-    ( "El 'Punk' rock se caracteriza por canciones largas y solos de guitarra complejos. ",  "falso "),
-    ( "El grupo 'Daft Punk' es originario de Francia. ",  "verdadero ")
+    ("Los Beatles se originaron en la ciudad de Liverpool.", "verdadero"),
+    ("El piano estándar tiene 88 teclas.", "verdadero"),
+    ("Michael Jackson es conocido mundialmente como el 'Rey del Rock'.", "falso"),
+    ("El reguetón se originó principalmente en Puerto Rico.", "verdadero"),
+    ("Beethoven quedó completamente sordo al final de su vida.", "verdadero"),
+    ("La guitarra eléctrica se inventó antes que la guitarra acústica.", "falso"),
+    ("El festival de Woodstock tuvo lugar en el año 1969.", "verdadero"),
+    ("Shakira es originaria de México.", "falso"),
+    ("El saxofón está clasificado como un instrumento de viento madera.", "verdadero"),
+    ("El flamenco es un género musical originario de Andalucía, España.", "verdadero"),
+    ("El violín tiene 6 cuerdas.", "falso"),
+    ("El rap y el hip-hop son exactamente el mismo género musical.", "falso"),
+    ("David Bowie es el creador del personaje 'Ziggy Stardust'.", "verdadero"),
+    ("La ópera se originó históricamente en Italia.", "verdadero"),
+    ("El sintetizador Moog fue fundamental en el desarrollo de la música electrónica.", "verdadero"),
+    ("El grupo 'Queen' fue fundado por Freddie Mercury y Paul McCartney.", "falso"),
+    ("El género Techno nació en la ciudad de Detroit, Estados Unidos.", "verdadero"),
+    ("El mariachi es un género musical tradicional de Argentina.", "falso"),
+    ("El grupo 'Nirvana' es el máximo exponente del Grunge.", "verdadero"),
+    ("Mozart compuso su primera sinfonía a los 8 años.", "verdadero"),
+    ("El bajo eléctrico tiene normalmente 4 cuerdas.", "verdadero"),
+    ("El género 'Dubstep' se caracteriza por sus bajos pesados y ritmos a medio tiempo.", "verdadero"),
+    ("Elvis Presley es conocido como 'El Rey del Pop'.", "falso"),
+    ("La banda 'The Rolling Stones' se formó en los años 80.", "falso"),
+    ("El 'Hardstyle' es un subgénero del EDM con un BPM típico de 150.", "verdadero"),
+    ("El compositor Johann Sebastian Bach era alemán.", "verdadero"),
+    ("El 'Trap' musical se originó en el sur de Estados Unidos.", "verdadero"),
+    ("La flauta travesera es un instrumento de viento metal.", "falso"),
+    ("El álbum 'Thriller' de Michael Jackson es el más vendido de la historia.", "verdadero"),
+    ("El género 'Salsa' tiene sus raíces principales en el Caribe y Nueva York.", "verdadero"),
+    ("El DJ Tiesto es originario de Alemania.", "falso"),
+    ("El 'Drum and Bass' se caracteriza por ritmos rápidos de breakbeat.", "verdadero"),
+    ("Beethoven escribió 9 sinfonías.", "verdadero"),
+    ("El 'Punk' rock se caracteriza por canciones largas y solos de guitarra complejos.", "falso"),
+    ("El grupo 'Daft Punk' es originario de Francia.", "verdadero")
 ]
 
 retos = [
-    "Pon la canción que más te haga bailar ahora mismo 🎵 ",
-    "Di tu género favorito y por qué 🎧 ",
-    "Cuéntanos tu mejor experiencia en un rave 🎪 ",
-    "Nombra 3 DJs que te encanten  ",
-    "¿Vinilo o digital? Defiende tu postura 💿 ",
-    "Describe tu sesión perfecta en 3 palabras ✨ ",
-    "¿Cuál fue el último track que te voló la cabeza? 🤯 ",
-    "Recomienda un set para esta noche 🔥 "
+    "Pon la canción que más te haga bailar ahora mismo 🎵",
+    "Di tu género favorito y por qué 🎧",
+    "Cuéntanos tu mejor experiencia en un rave 🎪",
+    "Nombra 3 DJs que te encanten 🎤",
+    "¿Vinilo o digital? Defiende tu postura 💿",
+    "Describe tu sesión perfecta en 3 palabras ✨",
+    "¿Cuál fue el último track que te voló la cabeza? 🤯",
+    "Recomienda un set para esta noche 🔥"
 ]
 
 verdades = [
-    "¿Cuál es tu guilty pleasure musical? 🎶 ",
-    "¿Alguna vez has llorado con una canción?  ",
-    "¿Qué género no soportas?  ",
-    "¿Cuál es el track más raro que tienes? 🦄 ",
-    "¿Techno a las 8am o house a las 4am? ⏰ ",
-    "¿Tu momento más épico en una pista?  ",
-    "¿Qué DJ te hubiera gustado ver en vivo? 🎟️ ",
-    "¿Vinilo más caro que has comprado? 💸 "
+    "¿Cuál es tu guilty pleasure musical? 🎶",
+    "¿Alguna vez has llorado con una canción? 😢",
+    "¿Qué género no soportas? 🤔",
+    "¿Cuál es el track más raro que tienes? 🦄",
+    "¿Techno a las 8am o house a las 4am? ⏰",
+    "¿Tu momento más épico en una pista? 🕺",
+    "¿Qué DJ te hubiera gustado ver en vivo? 🎟️",
+    "¿Vinilo más caro que has comprado? 💸"
 ]
 
 respuestas_bola = [
-    "Definitivamente sí 🔮 ",
-    "Sin duda ✅ ",
-    "Sí, totalmente ✅ ",
-    "Las señales apuntan a que sí  ",
-    "Pregunta de nuevo más tarde 🔄 ",
-    "Mejor no te digo ahora 🤫 ",
-    "Mis fuentes dicen que no ❌ ",
-    "Muy dudoso... 🤔 ",
-    "No cuentes con ello 🚫 ",
-    "El universo dice que sí 🌟 "
+    "Definitivamente sí 🔮",
+    "Sin duda ✅",
+    "Sí, totalmente ✅",
+    "Las señales apuntan a que sí ✨",
+    "Pregunta de nuevo más tarde 🔄",
+    "Mejor no te digo ahora 🤫",
+    "Mis fuentes dicen que no ❌",
+    "Muy dudoso... 🤔",
+    "No cuentes con ello 🚫",
+    "El universo dice que sí 🌟"
 ]
 
 def conectar():
@@ -141,20 +148,22 @@ def enviar(s, msg):
 
 def ia_gemini(preg):
     if not GEMINI_KEY:
-        return  "La IA no está configurada. "
+        return "La IA no está configurada."
     try:
-        url = f "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY} "
-        prompt = f "Eres {BOT}, DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave. Pregunta del usuario: {preg} "
+        # CORREGIDO: Se eliminó el espacio entre 'f' y las comillas
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
+        prompt = f"Eres {BOT}, DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave. Pregunta del usuario: {preg}"
+        # CORREGIDO: Se eliminaron los espacios extra en las claves del diccionario para que la API funcione
         payload = {
-            "contents ": [{ "parts ": [{ "text ": prompt}]}],
-            "generationConfig ": { "maxOutputTokens ": 100,  "temperature ": 0.7}
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": 100, "temperature": 0.7}
         }
         r = requests.post(url, json=payload, timeout=15)
         if r.status_code == 200:
             data = r.json()
-            return data[ "candidates "][0][ "content "][ "parts "][0][ "text "].strip()
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception as e:
-        print(f "[ERROR IA] {e} ")
+        print(f"[ERROR IA] {e}")
     return None
 
 def ttt_imprimir():
@@ -171,19 +180,19 @@ def ttt_verificar():
 
 def dibujar_ahorcado(intentos):
     fallos = 6 - intentos
-    dibujo =  " "
-    if fallos  >= 1:
-        dibujo +=  "🟡 "
-    if fallos  >= 2:
-        dibujo +=  "🟩 "
-    if fallos  >= 3:
-        dibujo +=  " "
-    if fallos  >= 4:
-        dibujo +=  "🟦 "
-    if fallos  >= 5:
-        dibujo +=  "🟪 "
-    if fallos  >= 6:
-        dibujo +=  "💀 "
+    dibujo = "🪢" # CORREGIDO: Se restauró la horca inicial
+    if fallos >= 1:
+        dibujo += "🟡"
+    if fallos >= 2:
+        dibujo += "🟩"
+    if fallos >= 3:
+        dibujo += "🟦"
+    if fallos >= 4:
+        dibujo += "🟦"
+    if fallos >= 5:
+        dibujo += "🟪"
+    if fallos >= 6:
+        dibujo += "🟪💀"
     return dibujo
 
 def ahorcado_estado():
@@ -199,21 +208,21 @@ def comando(s, user, cmd, arg):
     
     if cmd in ["!comandos", "!ayuda", "!help"]:
         enviar(s, "📜 INFO: !redes, !sobre, !normas, !prime. 🎉 DIVERSIÓN: !festero, !vf, !reto, !bola [pregunta], !dado, !moneda, !ppt [piedra/papel/tijera].")
-        enviar(s, " JUEGOS: !3enraya (!unirse, !mover), !ahorcado (!letra), !numero (!adivinanum), !trivia (!respuesta), !ruleta, !bpm (!adivinarbpm).")
+        enviar(s, "🎮 JUEGOS: !3enraya (!unirse, !mover), !ahorcado (!letra), !numero (!adivinanum), !trivia (!respuesta), !ruleta, !bpm (!adivinarbpm).")
     elif cmd == "!redes":
         enviar(s, "🔗 Sígueme: Kick: https://kick.com/jonasrdboficial | YouTube: https://www.youtube.com/@JonasRDB | FB: https://www.facebook.com/profile.php?id=61582389543371")
     elif cmd == "!sobre":
         enviar(s, "🎧 JONAS RDB // HARD DANCE. DJ alicantino criado entre vinilos desde 1994. +30 años haciendo vibrar pistas con Hard Dance, Remember y pura energía rave. 🚀")
     elif cmd == "!normas":
-        enviar(s, "⚠️ NORMAS: 1️⃣ Lenguaje respetuoso. 2️⃣ Emotes sin ofender. 3️⃣ Críticas constructivas SÍ, ataques NO. 🚫 TOLERANCIA CERO: amenazas, acoso, doxxing, odio o spam. ⛔ Incumplir = BAN PERMANENTE. ¡Disfruta! ")
+        enviar(s, "⚠️ NORMAS: 1️⃣ Lenguaje respetuoso. 2️⃣ Emotes sin ofender. 3️⃣ Críticas constructivas SÍ, ataques NO. 🚫 TOLERANCIA CERO: amenazas, acoso, doxxing, odio o spam. ⛔ Incumplir = BAN PERMANENTE. ¡Disfruta! 🎧")
     elif cmd in ["!prime", "!suscri"]:
-        enviar(s, " ¡Suscríbete GRATIS con Twitch Prime! Apoya el canal sin coste extra, desbloquea emotes y ayuda a que la fiesta no pare. ¡Gracias! ❤️")
+        enviar(s, "👑 ¡Suscríbete GRATIS con Twitch Prime! Apoya el canal sin coste extra, desbloquea emotes y ayuda a que la fiesta no pare. ¡Gracias! ❤️")
     elif cmd in ["!festero", "!fiesta", "!animado"]:
         p = random.randint(0, 100)
         if p >= 85:
             frase = f"🔥 ¡@{user} está al {p}% de festero! ¡A ROMPERLA! 🎉"
         elif p >= 65:
-            frase = f"🎉 @{user} está al {p}% de festero. ¡Sube el volumen! "
+            frase = f"🎉 @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
         elif p >= 45:
             frase = f"🎶 @{user} está al {p}% de festero. Vas bien, ¡sigue bailando! 💃"
         elif p >= 25:
@@ -308,7 +317,7 @@ def comando(s, user, cmd, arg):
             ahorcado_adivinadas = set()
             ahorcado_intentos = 6
             ahorcado_jugador = user
-            enviar(s, f" @{user} inició el AHORCADO! Palabra secreta: {ahorcado_estado()} | Escribe !letra [a-z]")
+            enviar(s, f"🎮 @{user} inició el AHORCADO! Palabra secreta: {ahorcado_estado()} | Escribe !letra [a-z]")
     elif cmd == "!letra":
         if not ahorcado_activo:
             enviar(s, "No hay ahorcado activo. Inicia con !ahorcado")
@@ -363,7 +372,7 @@ def comando(s, user, cmd, arg):
             elif n < num_secreto:
                 enviar(s, f"⬆️ @{user}: el número es MÁS ALTO que {n}.")
             else:
-                enviar(s, f"️ @{user}: el número es MÁS BAJO que {n}.")
+                enviar(s, f"⬇️ @{user}: el número es MÁS BAJO que {n}.")
         except:
             enviar(s, "Escribe un número válido.")
     elif cmd in ["!ppt", "!piedra"]:
@@ -379,10 +388,10 @@ def comando(s, user, cmd, arg):
             resultado = f"🎉 ¡@{user} GANA! {eleccion_user} vence a {eleccion_bot}."
         else:
             resultado = f"😈 ¡Gana el bot! {eleccion_bot} vence a {eleccion_user}."
-        enviar(s, f"🪨📄️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
+        enviar(s, f"🪨📄✂️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
     elif cmd == "!dado":
         resultado = random.randint(1, 6)
-        emojis = {1: "⚀", 2: "", 3: "⚂", 4: "⚃", 5: "", 6: "⚅"}
+        emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
         enviar(s, f"🎲 @{user} tiró el dado: {emojis[resultado]} {resultado}")
     elif cmd == "!moneda":
         resultado = random.choice(["CARA 👑", "CRUZ ✝️"])
@@ -393,7 +402,7 @@ def comando(s, user, cmd, arg):
             return
         enviar(s, f"🔮 @{user}: {random.choice(respuestas_bola)}")
     elif cmd in ["!reto", "!verdad"]:
-        tipo = random.choice(["RETO 🎯", "VERDAD "])
+        tipo = random.choice(["RETO 🎯", "VERDAD 💬"])
         contenido = random.choice(retos) if tipo.startswith("RETO") else random.choice(verdades)
         enviar(s, f"🎭 @{user} te toca un {tipo}: {contenido}")
     elif cmd == "!trivia" and not trivia_on:
@@ -404,16 +413,16 @@ def comando(s, user, cmd, arg):
         enviar(s, f"🎵 TRIVIA! {q['p']} (Responde: !respuesta [tu respuesta])")
     elif cmd == "!respuesta" and trivia_on:
         if arg.lower().strip() == trivia_r:
-            enviar(s, f" ¡CORRECTO @{user}!")
+            enviar(s, f"🎉 ¡CORRECTO @{user}!")
             trivia_on = False
         else:
-            enviar(s, f" Incorrecto @{user}.")
+            enviar(s, f"❌ Incorrecto @{user}.")
     elif cmd == "!ruleta":
         g = random.choice(["Techno","House","Trance","Drum&Bass","Dubstep","Hardstyle","Remember"])
         enviar(s, f"🎲 ¡Ruleta! Género: {g}. ¡Pon una canción!")
     elif cmd == "!bpm":
         bpm_n = random.randint(120, 174)
-        enviar(s, f" Adivina el BPM (120-174): !adivinarbpm [numero]")
+        enviar(s, f"🎧 Adivina el BPM (120-174): !adivinarbpm [numero]")
     elif cmd == "!adivinarbpm" and bpm_n is not None:
         try:
             n = int(arg)
@@ -432,11 +441,11 @@ def main():
     print("🚀 Bot de Twitch para la nube (Railway)")
     print(f"📺 Canal: #{CANAL}")
     print(f"🤖 Bot: {BOT}")
-    print(f" Gemini: {'✅ Configurado' if GEMINI_KEY else '❌ No configurado (IA desactivada)'}")
+    print(f"🧠 Gemini: {'✅ Configurado' if GEMINI_KEY else '❌ No configurado (IA desactivada)'}")
     
     s = conectar()
     print(f"✅ Bot listo en #{CANAL}!")
-    print(" Escribe en Twitch: !comandos")
+    print("🎮 Escribe en Twitch: !comandos")
     
     ultimo_mensaje = time.time()
     
