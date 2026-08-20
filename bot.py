@@ -51,8 +51,11 @@ class Bot(commands.Bot):
     async def event_ready(self):
         print(f'¡Conectado a Twitch exitosamente!')
         print(f'Escuchando el canal: {CANAL}')
-        if not self.animar_chat_autonomo.is_running():
+        # Modificación aplicada: Inicio seguro de la rutina sin usar is_running()
+        try:
             self.animar_chat_autonomo.start()
+        except Exception as e:
+            print(f"La rutina ya estaba en marcha o hubo un detalle al iniciarla: {e}")
 
     async def event_message(self, message):
         if message.echo:
