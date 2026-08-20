@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import datetime
 import twitchio
 from twitchio.ext import commands, routines
 from google import genai
@@ -27,7 +28,7 @@ class Bot(commands.Bot):
         )
         self.ultimo_mensaje = time.time()
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm", "ResidentSleeper", "FireChest"]
-        self.ultimos_mensajes_chat = []  # Memoria temporal de los últimos mensajes del chat para contexto
+        self.ultimos_mensajes_chat = []  
         
         # Estados de los minijuegos
         self.ahorcado_activo = False
@@ -50,7 +51,6 @@ class Bot(commands.Bot):
     async def event_ready(self):
         print(f'¡Conectado a Twitch exitosamente!')
         print(f'Escuchando el canal: {CANAL}')
-        # Iniciar la rutina autónoma en segundo plano
         if not self.animar_chat_autonomo.is_running():
             self.animar_chat_autonomo.start()
 
@@ -60,12 +60,10 @@ class Bot(commands.Bot):
 
         self.ultimo_mensaje = time.time()
         
-        # Guardar en memoria los últimos mensajes del chat para dar contexto a la IA
         self.ultimos_mensajes_chat.append(f"{message.author.name}: {message.content}")
         if len(self.ultimos_mensajes_chat) > 10:
             self.ultimos_mensajes_chat.pop(0)
 
-        # Procesar comandos si los hay
         await self.handle_commands(message)
 
         # Intervención espontánea (25% de probabilidad en mensajes normales de la gente)
@@ -90,9 +88,8 @@ class Bot(commands.Bot):
     # ----------------------------------------
     # RUTINA AUTÓNOMA (ROMPEHIELOS)
     # ----------------------------------------
-    @routines.routine(seconds=75)
+    @routines.routine(delta=datetime.timedelta(seconds=75))
     async def animar_chat_autonomo(self):
-        # Si el chat lleva más de 2 minutos sin mensajes de nadie, la IA habla sola para animar
         if time.time() - self.ultimo_mensaje > 120:
             canal_obj = self.get_channel(CANAL)
             if not canal_obj:
