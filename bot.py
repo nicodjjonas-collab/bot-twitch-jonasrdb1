@@ -5,7 +5,7 @@ import asyncio
 import json
 import twitchio
 from twitchio.ext import commands
-import google.generativeai as genai
+from google import genai
 
 # 1. Carga de Variables de Entorno (Configúralas en Railway)
 TOKEN = os.environ.get('TWITCH_TOKEN')
@@ -13,12 +13,11 @@ CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT_NAME = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
-# Configuración de la IA de Google Gemini
+# Configuración del nuevo cliente de Google Gen AI
 if GEMINI_KEY:
-    genai.configure(api_key=GEMINI_KEY)
-    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+    ai_client = genai.Client(api_key=GEMINI_KEY)
 else:
-    gemini_model = None
+    ai_client = None
 
 # Variables de estado del bot
 trivia_on, trivia_r, bpm_n = False, "", None
@@ -57,10 +56,10 @@ class Bot(commands.Bot):
     async def hola_command(self, ctx: commands.Context):
         await ctx.send(f'¡Hola @{ctx.author.name}! Qué bueno verte por aquí.')
 
-    # Comando integrado con Google Gemini
+    # Comando integrado con Google Gemini (SDK nuevo)
     @commands.command(name='ia')
     async def ia_command(self, ctx: commands.Context):
-        if not gemini_model:
+        if not ai_client:
             await ctx.send(f"@{ctx.author.name} La IA no está configurada (falta la GEMINI_API_KEY en Railway).")
             return
 
@@ -71,11 +70,15 @@ class Bot(commands.Bot):
             return
 
         try:
-            # Consulta a Gemini de forma síncrona/asíncrona segura
-            response = gemini_model.generate_content(prompt)
+            # Llamada utilizando el nuevo SDK de Google Gen AI
+            response = ai_client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            
             respuesta_texto = response.text.strip().replace('\n', ' ')
             
-            # Twitch tiene un límite de caracteres, cortamos si es muy largo (ej. 450 chars)
+            # Limitar longitud para el chat de Twitch
             if len(respuesta_texto) > 450:
                 respuesta_texto = respuesta_texto[:447] + "..."
                 
