@@ -71,7 +71,8 @@ class Bot(commands.Bot):
                     contexto = " | ".join(self.ultimos_mensajes_chat[-4:])
                     prompt = f"Eres un colega fiestero en el chat del DJ Jonas RDB (música Remember, Trance, Hard Dance). Contexto: [{contexto}]. Último de {message.author.name}: '{message.content}'. Responde breve (máx 110 caracteres) con el emote {random.choice(self.emotes_twitch)}"
                     res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                    await canal_obj.send(res.text.strip().replace('\n', ' ')[:130])
+                    texto_ia = res.text.strip() if hasattr(res, 'text') else str(res)
+                    await canal_obj.send(texto_ia.replace('\n', ' ')[:130])
             except Exception as e:
                 print(f"Error IA espontánea: {e}")
 
@@ -86,7 +87,7 @@ class Bot(commands.Bot):
                         if ai_client:
                             prompt = f"Comenta algo animando la sesión de música Remember de Jonas RDB como espectador habitual. Breve y con el emote {random.choice(self.emotes_twitch)}"
                             res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                            msg = res.text.strip().replace('\n', ' ')
+                            msg = (res.text.strip() if hasattr(res, 'text') else str(res)).replace('\n', ' ')
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
                         await canal_obj.send(msg)
@@ -113,13 +114,20 @@ class Bot(commands.Bot):
 
     @commands.command(name='ia')
     async def ia_command(self, ctx: commands.Context):
-        if not ai_client: return await ctx.send("IA no configurada.")
-        prompt = ctx.message.content.replace('!ia', '').strip()
-        if not prompt: return await ctx.send("Escribe algo: !ia <pregunta>")
+        if not ai_client: 
+            return await ctx.send("IA no configurada.")
+        prompt = ctx.message.content.replace('!ia', '', 1).strip()
+        if not prompt: 
+            return await ctx.send(f"@{ctx.author.name} Escribe algo: !ia <pregunta>")
         try:
-            res = ai_client.models.generate_content(model='gemini-2.5-flash', contents=f"Responde breve, fiestero y amigable a {ctx.author.name} en el chat de Jonas RDB: {prompt}")
-            await ctx.send(f"@{ctx.author.name} {res.text.strip()[:400]}")
-        except:
+            response = ai_client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=f"Responde breve, fiestero y amigable a {ctx.author.name} en el chat del DJ Jonas RDB (música Remember): {prompt}"
+            )
+            texto_respuesta = response.text.strip() if hasattr(response, 'text') else str(response)
+            await ctx.send(f"@{ctx.author.name} {texto_respuesta[:400]}")
+        except Exception as e:
+            print(f"[ERROR GEMINI] Detalle: {e}")
             await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
 
     @commands.command(name='festero')
