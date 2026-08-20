@@ -52,8 +52,8 @@ class Bot(commands.Bot):
         print('=== BOT CONECTADO CORRECTAMENTE A TWITCH ===')
         print(f'Canal objetivo: {CANAL}')
 
-    async def event_channel_joined(self, channel: twitchio.Channel):
-        print(f'=== UNIDO EXITOSAMENTE AL CANAL: {channel.name} ===')
+    async def event_channel_joined(self, channel):
+        print(f'=== UNIDO EXITOSAMENTE AL CANAL ===')
         asyncio.create_task(self.bucle_autonomo_chat())
 
     async def bucle_autonomo_chat(self):
