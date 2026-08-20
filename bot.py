@@ -10,9 +10,9 @@ from google import genai
 # 1. CONFIGURACIÓN Y VARIABLES DE ENTORNO
 # ----------------------------------------
 TOKEN = os.environ.get('TWITCH_TOKEN')
-CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID')
+CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID', '') # Opcional si la API key gestiona auth básica de chat
 CLIENT_SECRET = os.environ.get('TWITCH_CLIENT_SECRET')
-BOT_NICK = os.environ.get('TWITCH_BOT_NICK', 'jonasrdb').lower() 
+BOT_NICK = os.environ.get('TWITCH_BOT', 'jonasrdb').lower() 
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
@@ -342,10 +342,9 @@ class Bot(commands.Bot):
         return False
 
 if __name__ == '__main__':
-    if not TOKEN or not CLIENT_ID or not CLIENT_SECRET:
-        print("ERROR CRÍTICO: Faltan variables de entorno esenciales para conectar con Twitch.")
+    if not TOKEN:
+        print("ERROR CRÍTICO: Falta TWITCH_TOKEN en el entorno.")
     else:
-        # Bucle de persistencia para evitar que el contenedor se apague si Twitch desconecta el socket
         while True:
             try:
                 bot = Bot()
