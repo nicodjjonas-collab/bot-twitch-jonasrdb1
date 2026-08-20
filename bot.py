@@ -2,6 +2,7 @@ import os
 import random
 import time
 import asyncio
+import traceback
 import twitchio
 from twitchio.ext import commands
 from google import genai
@@ -9,22 +10,29 @@ from google import genai
 # ----------------------------------------
 # 1. CONFIGURACIÓN Y VARIABLES DE ENTORNO
 # ----------------------------------------
-TOKEN = os.environ.get('TWITCH_TOKEN')
-CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID', '') # Opcional si la API key gestiona auth básica de chat
-CLIENT_SECRET = os.environ.get('TWITCH_CLIENT_SECRET')
+TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
+CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID', '')
+CLIENT_SECRET = os.environ.get('TWITCH_CLIENT_SECRET', '')
 BOT_NICK = os.environ.get('TWITCH_BOT', 'jonasrdb').lower() 
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
-ai_client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
+print(f"[INIT] Configurando bot para el canal: {CANAL} como {BOT_NICK}")
+
+ai_client = None
+if GEMINI_KEY:
+    try:
+        ai_client = genai.Client(api_key=GEMINI_KEY)
+        print("[INIT] Cliente de Gemini inicializado correctamente.")
+    except Exception as e:
+        print(f"[INIT] Error al inicializar Gemini: {e}")
 
 class Bot(commands.Bot):
     def __init__(self):
-        self.nick = BOT_NICK
         super().__init__(
             token=TOKEN,
-            client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET,
+            client_id=CLIENT_ID if CLIENT_ID else None,
+            client_secret=CLIENT_SECRET if CLIENT_SECRET else None,
             nick=BOT_NICK,
             prefix='!',
             initial_channels=[CANAL]
@@ -88,16 +96,18 @@ class Bot(commands.Bot):
                 print(f"Error en bucle autónomo: {e}")
 
     async def event_message(self, message):
+        print(f"[CHAT] {message.author.name if message.author else 'Sistema'}: {message.content}")
+        
         if message.echo:
             return
 
-        print(f"[CHAT] {message.author.name}: {message.content}")
         self.ultimo_mensaje = time.time()
         
         self.ultimos_mensajes_chat.append(f"{message.author.name}: {message.content}")
         if len(self.ultimos_mensajes_chat) > 10:
             self.ultimos_mensajes_chat.pop(0)
 
+        # Procesar comandos del bot
         await self.handle_commands(message)
 
         # Intervención espontánea (25% de probabilidad en mensajes del chat)
@@ -132,11 +142,11 @@ class Bot(commands.Bot):
 
     @commands.command(name='normas')
     async def cmd_normas(self, ctx: commands.Context):
-        await ctx.send("⚠️ NORMAS DEL CHAT ⚠️ Lenguaje educado, cero ataques personales y tolerancia cero con el odio. ¡Disfruta del Hard Dance! 🎧")
+        await ctx.send("⚠️ NORMAS DEL CHAT ⚠️ Lenguaje educado, cero ataques personales y tolerancia cero con el odio. ¡Disfruta del Hard Dance y Remember! 🎧")
 
     @commands.command(name='redes')
     async def cmd_redes(self, ctx: commands.Context):
-        await ctx.send("🌐 Sígueme en mis redes para estar al día de todas las sesiones Remember, Hard Dance y Trance de JONAS RDB.")
+        await ctx.send("🌐 Sígueme en mis directos y redes para estar al día de todas las sesiones de JONAS RDB.")
 
     @commands.command(name='prime')
     async def cmd_prime(self, ctx: commands.Context):
@@ -159,7 +169,8 @@ class Bot(commands.Bot):
             response = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt_sistema)
             respuesta = response.text.strip().replace('\n', ' ')
             await ctx.send(f"@{ctx.author.name} {respuesta[:430]}")
-        except:
+        except Exception as ex:
+            print(f"Error en comando !ia: {ex}")
             await ctx.send(f"@{ctx.author.name} ¡Uy, me he quedado rayado con el beat! Prueba otra vez. 😅")
 
     # ----------------------------------------
@@ -347,8 +358,11 @@ if __name__ == '__main__':
     else:
         while True:
             try:
+                print("[START] Iniciando instancia del bot...")
                 bot = Bot()
                 bot.run()
             except Exception as e:
-                print(f"[RECONEXIÓN] Error crítico detectado: {e}. Reiniciando bot en 5 segundos...")
+                print(f"[RECONEXIÓN] Excepción capturada en bucle principal:")
+                traceback.print_exc()
+                print("Reiniciando bot en 5 segundos...")
                 time.sleep(5)
