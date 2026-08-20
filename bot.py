@@ -5,7 +5,7 @@ import random
 import os
 import requests
 
-# CONFIGURACIÓN
+# CONFIGURACIÓN (Se carga desde las Variables de Entorno de Railway)
 TOKEN = os.environ.get('TWITCH_TOKEN', 'oauth:lrrg261q2uk90yfsia57pbhms9m8dk')
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
@@ -116,16 +116,10 @@ verdades = [
 ]
 
 respuestas_bola = [
-    "Definitivamente sí 🔮",
-    "Sin duda ✅",
-    "Sí, totalmente ✅",
-    "Las señales apuntan a que sí ✨",
-    "Pregunta de nuevo más tarde 🔄",
-    "Mejor no te digo ahora 🤫",
-    "Mis fuentes dicen que no ❌",
-    "Muy dudoso... 🤔",
-    "No cuentes con ello 🚫",
-    "El universo dice que sí 🌟"
+    "Definitivamente sí 🔮", "Sin duda ✅", "Sí, totalmente ✅",
+    "Las señales apuntan a que sí ✨", "Pregunta de nuevo más tarde 🔄",
+    "Mejor no te digo ahora 🤫", "Mis fuentes dicen que no ❌",
+    "Muy dudoso... 🤔", "No cuentes con ello 🚫", "El universo dice que sí 🌟"
 ]
 
 def conectar():
@@ -150,10 +144,8 @@ def ia_gemini(preg):
     if not GEMINI_KEY:
         return "La IA no está configurada."
     try:
-        # CORREGIDO: Se eliminó el espacio entre 'f' y las comillas
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
         prompt = f"Eres {BOT}, DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave. Pregunta del usuario: {preg}"
-        # CORREGIDO: Se eliminaron los espacios extra en las claves del diccionario para que la API funcione
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"maxOutputTokens": 100, "temperature": 0.7}
@@ -171,7 +163,7 @@ def ttt_imprimir():
 
 def ttt_verificar():
     ganar = [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]
-    for a,b,c in ganar:
+    for a, b, c in ganar:
         if ttt_tablero[a] == ttt_tablero[b] == ttt_tablero[c]:
             return ttt_tablero[a]
     if all(c in ["X", "O"] for c in ttt_tablero):
@@ -180,19 +172,13 @@ def ttt_verificar():
 
 def dibujar_ahorcado(intentos):
     fallos = 6 - intentos
-    dibujo = "🪢" # CORREGIDO: Se restauró la horca inicial
-    if fallos >= 1:
-        dibujo += "🟡"
-    if fallos >= 2:
-        dibujo += "🟩"
-    if fallos >= 3:
-        dibujo += "🟦"
-    if fallos >= 4:
-        dibujo += "🟦"
-    if fallos >= 5:
-        dibujo += "🟪"
-    if fallos >= 6:
-        dibujo += "🟪💀"
+    dibujo = "🪢"
+    if fallos >= 1: dibujo += "🟡"
+    if fallos >= 2: dibujo += "🟩"
+    if fallos >= 3: dibujo += "🟦"
+    if fallos >= 4: dibujo += "🟦"
+    if fallos >= 5: dibujo += "🟪"
+    if fallos >= 6: dibujo += "🟪💀"
     return dibujo
 
 def ahorcado_estado():
@@ -219,16 +205,11 @@ def comando(s, user, cmd, arg):
         enviar(s, "👑 ¡Suscríbete GRATIS con Twitch Prime! Apoya el canal sin coste extra, desbloquea emotes y ayuda a que la fiesta no pare. ¡Gracias! ❤️")
     elif cmd in ["!festero", "!fiesta", "!animado"]:
         p = random.randint(0, 100)
-        if p >= 85:
-            frase = f"🔥 ¡@{user} está al {p}% de festero! ¡A ROMPERLA! 🎉"
-        elif p >= 65:
-            frase = f"🎉 @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
-        elif p >= 45:
-            frase = f"🎶 @{user} está al {p}% de festero. Vas bien, ¡sigue bailando! 💃"
-        elif p >= 25:
-            frase = f"😐 @{user} está al {p}% de festero. ¡Despierta que empieza la sesión! ⚡"
-        else:
-            frase = f"😴 @{user} está al {p}% sin ganas... ¿Necesitas un Red Bull? 🥱"
+        if p >= 85: frase = f"🔥 ¡@{user} está al {p}% de festero! ¡A ROMPERLA! 🎉"
+        elif p >= 65: frase = f"🎉 @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
+        elif p >= 45: frase = f"🎶 @{user} está al {p}% de festero. Vas bien, ¡sigue bailando! 💃"
+        elif p >= 25: frase = f"😐 @{user} está al {p}% de festero. ¡Despierta que empieza la sesión! ⚡"
+        else: frase = f"😴 @{user} está al {p}% sin ganas... ¿Necesitas un Red Bull? 🥱"
         enviar(s, frase)
     elif cmd in ["!vf", "!verdaderofalso"]:
         if vf_activo:
@@ -252,10 +233,7 @@ def comando(s, user, cmd, arg):
         if ttt_activo:
             enviar(s, f"Ya hay partida en curso. Tablero:\n{ttt_imprimir()}")
         else:
-            ttt_activo = True
-            ttt_x = user
-            ttt_o = ""
-            ttt_turno = "X"
+            ttt_activo, ttt_x, ttt_o, ttt_turno = True, user, "", "X"
             ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
             enviar(s, f"🎮 @{user} inició 3 en Raya! Otro viewer debe escribir !unirse para jugar como 'O'.")
     elif cmd == "!unirse":
@@ -408,8 +386,7 @@ def comando(s, user, cmd, arg):
     elif cmd == "!trivia" and not trivia_on:
         qs = [{"p":"BPM del techno?","r":"130"},{"p":"Rey techno Detroit?","r":"juan atkins"},{"p":"House + techno?","r":"tech house"},{"p":"Cuna drum&bass?","r":"londres"},{"p":"Que es BPM?","r":"beats por minuto"}]
         q = random.choice(qs)
-        trivia_on = True
-        trivia_r = q["r"]
+        trivia_on, trivia_r = True, q["r"]
         enviar(s, f"🎵 TRIVIA! {q['p']} (Responde: !respuesta [tu respuesta])")
     elif cmd == "!respuesta" and trivia_on:
         if arg.lower().strip() == trivia_r:
@@ -446,7 +423,6 @@ def main():
     s = conectar()
     print(f"✅ Bot listo en #{CANAL}!")
     print("🎮 Escribe en Twitch: !comandos")
-    
     ultimo_mensaje = time.time()
     
     while True:
@@ -456,7 +432,6 @@ def main():
                 ultimo_mensaje = time.time()
             
             data = s.recv(4096).decode('utf-8', errors='ignore')
-            
             if data.startswith("PING"):
                 s.send("PONG\r\n".encode())
             elif "PRIVMSG" in data:
@@ -478,7 +453,6 @@ def main():
                     if msg.startswith("!"):
                         pc = msg.split(" ", 1)
                         comando(s, user, pc[0].lower(), pc[1] if len(pc) > 1 else "")
-        
         except Exception as e:
             print(f"❌ Error: {e}")
             print("🔄 Reconectando en 5 segundos...")
