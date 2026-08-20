@@ -12,7 +12,7 @@ BOT_NICK = os.environ.get('TWITCH_BOT', 'jonasrdb').lower()
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
-print(f"[INIT] Arrancando bot completo para el canal: {CANAL}")
+print(f"[INIT] Arrancando bot asíncrono para el canal: {CANAL}")
 
 ai_client = None
 if GEMINI_KEY:
@@ -33,21 +33,17 @@ class Bot(commands.Bot):
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.ultimos_mensajes_chat = []  
         
-        # Estados de todos los minijuegos
+        # Estados de los minijuegos
         self.ahorcado_activo = False
         self.ahorcado_palabra = ""
         self.ahorcado_adivinadas = set()
         self.ahorcado_intentos = 6
-
         self.ttt_activo = False
         self.ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-
         self.num_activo = False
         self.num_secreto = 0
-        
         self.vf_activo = False
         self.vf_respuesta = ""
-
         self.trivia_activo = False
         self.trivia_respuesta = ""
 
@@ -98,9 +94,7 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # ----------------------------------------
-    # COMANDOS GENERALES E INFORMACIÓN
-    # ----------------------------------------
+    # Comandos (Lista completa)
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
         await ctx.send("🤖 IA: !ia | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 📌 Info: !normas, !redes, !prime | 🎲 Diversión: !festero, !amor, !ruleta, !ppt, !moneda, !bola8")
@@ -117,9 +111,6 @@ class Bot(commands.Bot):
     async def cmd_prime(self, ctx: commands.Context):
         await ctx.send("🔔 ¡Apoya con Amazon Prime! Consigue insignias, emotes exclusivos y apoya las sesiones de JONAS RDB.")
 
-    # ----------------------------------------
-    # INTELIGENCIA ARTIFICIAL (!ia)
-    # ----------------------------------------
     @commands.command(name='ia')
     async def ia_command(self, ctx: commands.Context):
         if not ai_client: return await ctx.send("IA no configurada.")
@@ -131,9 +122,6 @@ class Bot(commands.Bot):
         except:
             await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
 
-    # ----------------------------------------
-    # MINIJUEGOS Y ENTRETENIMIENTO
-    # ----------------------------------------
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
         await ctx.send(f"🎉 @{ctx.author.name} tiene un {random.randint(0,100)}% de ganas de fiesta hoy. 🔥")
@@ -169,7 +157,6 @@ class Bot(commands.Bot):
         res = "¡Empate! 🤝" if j == bot_elige else "¡Me ganaste! 🎉" if (j=="piedra" and bot_elige=="tijera") or (j=="papel" and bot_elige=="piedra") or (j=="tijera" and bot_elige=="papel") else "¡Gano yo, máquina! 🤖"
         await ctx.send(f"Elegiste {j}, yo saqué {bot_elige}. {res}")
 
-    # Ahorcado
     @commands.command(name='ahorcado')
     async def ahorcado_start(self, ctx: commands.Context):
         if self.ahorcado_activo: return await ctx.send("¡Ya hay un ahorcado activo! Usa !letra <letra>")
@@ -199,7 +186,6 @@ class Bot(commands.Bot):
         else:
             await ctx.send(f"Palabra: {oculto} | Intentos: {self.ahorcado_intentos}")
 
-    # Adivinar número
     @commands.command(name='adivinar')
     async def start_adivinar(self, ctx: commands.Context):
         if self.num_activo: return await ctx.send("¡Número activo! Adivina con !n <numero>")
@@ -218,7 +204,6 @@ class Bot(commands.Bot):
         elif intento < self.num_secreto: await ctx.send(f"🔼 ¡Sube, @{ctx.author.name}!")
         else: await ctx.send(f"🔽 ¡Baja, @{ctx.author.name}!")
 
-    # Verdadero o Falso
     @commands.command(name='vf')
     async def vf_start(self, ctx: commands.Context):
         if self.vf_activo: return await ctx.send("¡Ya hay un V/F activo! Responde con !v o !f")
@@ -245,7 +230,6 @@ class Bot(commands.Bot):
         if self.vf_respuesta == "F": await ctx.send(f"✅ ¡Correcto @{ctx.author.name}! Era FALSO. 🔥")
         else: await ctx.send(f"❌ ¡Fallaste @{ctx.author.name}! Era VERDADERO. 😜")
 
-    # Trivia musical
     @commands.command(name='trivia')
     async def trivia_start(self, ctx: commands.Context):
         if self.trivia_activo: return await ctx.send("¡Ya hay una trivia activa! Responde con !r <A/B/C>")
@@ -270,7 +254,6 @@ class Bot(commands.Bot):
         else:
             await ctx.send(f"❌ Casi, @{ctx.author.name}. La correcta era la {self.trivia_respuesta}.")
 
-    # 3 en Raya
     @commands.command(name='3enraya')
     async def ttt_start(self, ctx: commands.Context):
         self.ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
@@ -311,15 +294,18 @@ class Bot(commands.Bot):
             if t[a] == t[b] == t[c] == f: return True
         return False
 
-if __name__ == '__main__':
+async def main():
     if not TOKEN:
         print("ERROR: Falta TWITCH_TOKEN.")
-    else:
-        while True:
-            try:
-                bot = Bot()
-                bot.run()
-            except Exception as e:
-                print(f"[RECONEXIÓN] Error: {e}")
-                traceback.print_exc()
-                time.sleep(5)
+        return
+    bot = Bot()
+    await bot.start()
+
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        print(f"[RECONEXIÓN] Error: {e}")
+        traceback.print_exc()
