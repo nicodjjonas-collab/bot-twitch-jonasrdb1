@@ -55,10 +55,9 @@ class Bot(commands.Bot):
         print(f'=== ¡BOT CONECTADO Y ESCUCHANDO EN EL CANAL: {CANAL} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
 
-    # Silencia los errores de comandos no encontrados en la consola
     async def event_command_error(self, ctx: commands.Context, error: Exception):
         if isinstance(error, commands.CommandNotFound):
-            return  # Ignora si escriben un comando que no existe sin ensuciar el log
+            return  
         print(f"[ERROR COMANDO] {error}")
 
     async def event_message(self, message):
@@ -79,10 +78,17 @@ class Bot(commands.Bot):
                 canal_obj = self.get_channel(CANAL)
                 if canal_obj:
                     contexto = " | ".join(self.ultimos_mensajes_chat[-4:])
-                    prompt = f"Eres un colega fiestero en el chat del DJ Jonas RDB (música Remember, Trance, Hard Dance). Contexto: [{contexto}]. Último de {message.author.name}: '{message.content}'. Responde breve (máx 110 caracteres) con el emote {random.choice(self.emotes_twitch)}"
-                    res = await ai_client.aio.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                    texto_ia = res.text if res and res.text else "¡Temarral! 🔥"
-                    await canal_obj.send(texto_ia.strip().replace('\n', ' ')[:130])
+                    prompt = f"Contexto reciente del chat: [{contexto}]. El usuario {message.author.name} acaba de decir: '{message.content}'. Coméntalo de forma natural, como un colega más en el chat de la sesión."
+                    
+                    response = await ai_client.aio.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt,
+                        config={
+                            'system_instruction': "Eres una persona real y un espectador habitual más en el chat de Twitch del DJ Jonas RDB (especializado en Remember, Trance y Hard Dance). Hablas de forma súper natural, cercana, fiestera y callejera (español de España, usa expresiones como 'tío', 'temarral', 'menudo viaje', 'madre mía'). NUNCA suenes como un asistente virtual, IA o bot. Sé súper breve (máximo 110 caracteres) y suelta comentarios espontáneos.",
+                        }
+                    )
+                    texto_ia = response.text if response and response.text else "¡Vaya temazo! 🔥"
+                    await canal_obj.send(f"{texto_ia.strip().replace(chr(10), ' ')} {random.choice(self.emotes_twitch)}")
             except Exception as e:
                 print(f"Error IA espontánea: {e}")
 
@@ -95,12 +101,18 @@ class Bot(commands.Bot):
                     canal_obj = self.get_channel(CANAL)
                     if canal_obj:
                         if ai_client:
-                            prompt = f"Comenta algo animando la sesión de música Remember de Jonas RDB como espectador habitual. Breve y con el emote {random.choice(self.emotes_twitch)}"
-                            res = await ai_client.aio.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                            msg = (res.text if res and res.text else "¡Vaya temazos!").replace('\n', ' ')
+                            prompt = "Tira un comentario suelto animando la sesión de música Remember de Jonas RDB como si estuvieras bailando en tu casa."
+                            response = await ai_client.aio.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=prompt,
+                                config={
+                                    'system_instruction': "Eres un colega más viendo el directo de Jonas RDB. Escribe corto, natural, con jerga fiestera de España y añade un toque de buen rollo.",
+                                }
+                            )
+                            msg = (response.text if response and response.text else "¡Menuda sesión nos estás dando!").replace('\n', ' ')
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
-                        await canal_obj.send(msg)
+                        await canal_obj.send(f"{msg} {random.choice(self.emotes_twitch)}")
                         self.ultimo_mensaje = time.time()
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
@@ -125,22 +137,24 @@ class Bot(commands.Bot):
     @commands.command(name='ia', aliases=['hola', 'chat'])
     async def ia_command(self, ctx: commands.Context):
         if not ai_client: 
-            return await ctx.send(f"@{ctx.author.name} IA no configurada (falta la API Key).")
+            return await ctx.send(f"@{ctx.author.name} ¡Ey! Configura la API key para que pueda hablar.")
         
-        # Limpia el comando usado (!ia, !hola, etc.) para dejar solo el texto que escribió el usuario
         content_parts = ctx.message.content.split(' ', 1)
-        prompt = content_parts[1] if len(content_parts) > 1 else "¡Hola máquina!"
+        prompt = content_parts[1] if len(content_parts) > 1 else "¡Hola tío!"
         
         try:
             response = await ai_client.aio.models.generate_content(
                 model='gemini-2.5-flash',
-                contents=f"Responde breve, fiestero y amigable a {ctx.author.name} en el chat del DJ Jonas RDB (música Remember): {prompt}"
+                contents=prompt,
+                config={
+                    'system_instruction': f"Eres una persona real, un colega fiestero y viewer habitual en el directo de Twitch del DJ Jonas RDB (música Remember, Trance, Hard Dance). Responde directamente a {ctx.author.name} como lo haría un amigo por el chat: hablando de tú, con naturalidad, jerga coloquial de España, tono fiestero y sin modales artificiales de IA. Sé breve (máx 300 caracteres).",
+                }
             )
-            texto_respuesta = response.text if response and response.text else "¡Temarral absoluto! 🔥"
+            texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Menudo temarral llevas. 🔥"
             await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:400]}")
         except Exception as e:
             print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
-            await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
+            await ctx.send(f"@{ctx.author.name} ¡Hostia, se me ha ido el santo al cielo con la música! ¿Qué decías? 😅")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
