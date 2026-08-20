@@ -50,7 +50,6 @@ class Bot(commands.Bot):
 
     async def event_ready(self):
         print(f'=== BOT CONECTADO CORRECTAMENTE ===')
-        print(f'Logueado como: {self.nick}')
         print(f'Canal objetivo: {CANAL}')
         asyncio.create_task(self.bucle_autonomo_chat())
 
