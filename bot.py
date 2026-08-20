@@ -101,19 +101,20 @@ respuestas_bola = [
     "Muy dudoso...", "No cuentes con ello", "El universo dice que sí"
 ]
 
-
 def obtener_emote_aleatorio():
     todos_emotes = emotes_canal + emotes_personalizados
     return random.choice(todos_emotes) if todos_emotes else ""
-
 
 def consultar_qwen(pregunta):
     if not GROQ_KEY:
         print("[ERROR IA] GROQ_KEY no está configurada")
         return None
+    
+    clave_limpia = GROQ_KEY.strip()
+    
     try:
         url = "https://api.groq.com/openai/v1/chat/completions"
-        system_prompt = f"Eres {BOT_NAME}, DJ y animador del chat de JonasRDB. Eres autónomo y hablas solo para animar el chat. Responde en español, máximo 2 frases cortas, con energía rave y buen rollo. Usa emojis de música."
+        system_prompt = f"Eres {BOT_NAME}, DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave."
         
         payload = {
             "model": "qwen-2.5-32b",
@@ -128,7 +129,7 @@ def consultar_qwen(pregunta):
         data = json.dumps(payload).encode('utf-8')
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {GROQ_KEY}'
+            'Authorization': f'Bearer {clave_limpia}'
         }
         req = Request(url, data=data, headers=headers, method='POST')
         
@@ -136,12 +137,11 @@ def consultar_qwen(pregunta):
             result = json.loads(response.read().decode('utf-8'))
             if "choices" in result and len(result["choices"]) > 0:
                 return result["choices"][0]["message"]["content"].strip()
-            print("[ERROR IA] Respuesta inesperada: " + str(result))
+            print("[ERROR IA] Respuesta inesperada: " + str(result)[:200])
             return None
     except Exception as e:
         print("[ERROR IA] " + str(e))
         return None
-
 
 class Bot(commands.Bot):
     def __init__(self):
