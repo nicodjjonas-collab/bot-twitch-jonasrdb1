@@ -1,14 +1,15 @@
-import socket
-import ssl
-import time
-import random
 import os
-import requests
 
-# CONFIGURACIÓN (Se carga desde las Variables de Entorno de Railway)
+codigo = """import twitchio
+from twitchio.ext import commands
+import os
+import random
+import time
+
+# CONFIGURACIÓN
 TOKEN = os.environ.get('TWITCH_TOKEN', 'oauth:lrrg261q2uk90yfsia57pbhms9m8dk')
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
-BOT = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
+BOT_NAME = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
 GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
 
 # Variables de juegos
@@ -44,16 +45,11 @@ frases_animar = [
     "¿Cuál es vuestro BPM favorito para bailar? 💃",
     "¿Techno duro o melódico? ¡Os leo! 👀",
     "¿Quién más está disfrutando de la sesión? 🏠",
-    "¿Qué os parece la energía de hoy? ¡Subid el volumen! 🔊",
+    "¿Qué os parece la energía de hoy? ¡Subid el volumen! ",
     "¡Escribe !comandos para ver todo lo que puedo hacer!"
 ]
 
-palabras_ahorcado = [
-    "techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave",
-    "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador",
-    "acido", "detroit", "ibiza", "berlin", "minimal", "progressive",
-    "hardcore", "remember", "makina", "eurodance", "disco"
-]
+palabras_ahorcado = ["techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave", "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador", "acido", "detroit", "ibiza", "berlin", "minimal", "progressive", "hardcore", "remember", "makina", "eurodance", "disco"]
 
 preguntas_vf = [
     ("Los Beatles se originaron en la ciudad de Liverpool.", "verdadero"),
@@ -93,374 +89,281 @@ preguntas_vf = [
     ("El grupo 'Daft Punk' es originario de Francia.", "verdadero")
 ]
 
-retos = [
-    "Pon la canción que más te haga bailar ahora mismo 🎵",
-    "Di tu género favorito y por qué 🎧",
-    "Cuéntanos tu mejor experiencia en un rave 🎪",
-    "Nombra 3 DJs que te encanten 🎤",
-    "¿Vinilo o digital? Defiende tu postura 💿",
-    "Describe tu sesión perfecta en 3 palabras ✨",
-    "¿Cuál fue el último track que te voló la cabeza? 🤯",
-    "Recomienda un set para esta noche 🔥"
-]
+retos = ["Pon la canción que más te haga bailar ahora mismo 🎵", "Di tu género favorito y por qué 🎧", "Cuéntanos tu mejor experiencia en un rave 🎪", "Nombra 3 DJs que te encanten ", "¿Vinilo o digital? Defiende tu postura 💿", "Describe tu sesión perfecta en 3 palabras ✨", "¿Cuál fue el último track que te voló la cabeza? 🤯", "Recomienda un set para esta noche 🔥"]
+verdades = ["¿Cuál es tu guilty pleasure musical? 🎶", "¿Alguna vez has llorado con una canción? 😢", "¿Qué género no soportas? 🤔", "¿Cuál es el track más raro que tienes? ", "¿Techno a las 8am o house a las 4am? ⏰", "¿Tu momento más épico en una pista? ", "¿Qué DJ te hubiera gustado ver en vivo? 🎟️", "¿Vinilo más caro que has comprado? 💸"]
+respuestas_bola = ["Definitivamente sí 🔮", "Sin duda ✅", "Sí, totalmente ✅", "Las señales apuntan a que sí ✨", "Pregunta de nuevo más tarde 🔄", "Mejor no te digo ahora 🤫", "Mis fuentes dicen que no ❌", "Muy dudoso... ", "No cuentes con ello 🚫", "El universo dice que sí 🌟"]
 
-verdades = [
-    "¿Cuál es tu guilty pleasure musical? 🎶",
-    "¿Alguna vez has llorado con una canción? 😢",
-    "¿Qué género no soportas? 🤔",
-    "¿Cuál es el track más raro que tienes? 🦄",
-    "¿Techno a las 8am o house a las 4am? ⏰",
-    "¿Tu momento más épico en una pista? 🕺",
-    "¿Qué DJ te hubiera gustado ver en vivo? 🎟️",
-    "¿Vinilo más caro que has comprado? 💸"
-]
-
-respuestas_bola = [
-    "Definitivamente sí 🔮", "Sin duda ✅", "Sí, totalmente ✅",
-    "Las señales apuntan a que sí ✨", "Pregunta de nuevo más tarde 🔄",
-    "Mejor no te digo ahora 🤫", "Mis fuentes dicen que no ❌",
-    "Muy dudoso... 🤔", "No cuentes con ello 🚫", "El universo dice que sí 🌟"
-]
-
-def conectar():
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s = context.wrap_socket(s)
-    s.connect(("irc.chat.twitch.tv", 6697))
-    s.send(f"PASS {TOKEN}\r\n".encode())
-    s.send(f"NICK {BOT}\r\n".encode())
-    s.send("CAP REQ :twitch.tv/commands\r\n".encode())
-    s.send(f"JOIN #{CANAL}\r\n".encode())
-    return s
-
-def enviar(s, msg):
-    print(f"[ENVIANDO] {msg}")
-    s.send(f"PRIVMSG #{CANAL} :{msg}\r\n".encode())
-    time.sleep(1.5)
-
-def ia_gemini(preg):
-    if not GEMINI_KEY:
-        return "La IA no está configurada."
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
-        prompt = f"Eres {BOT}, DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave. Pregunta del usuario: {preg}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 100, "temperature": 0.7}
-        }
-        r = requests.post(url, json=payload, timeout=15)
-        if r.status_code == 200:
-            data = r.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception as e:
-        print(f"[ERROR IA] {e}")
-    return None
-
-def ttt_imprimir():
-    return f"{ttt_tablero[0]}|{ttt_tablero[1]}|{ttt_tablero[2]}\n-----\n{ttt_tablero[3]}|{ttt_tablero[4]}|{ttt_tablero[5]}\n-----\n{ttt_tablero[6]}|{ttt_tablero[7]}|{ttt_tablero[8]}"
-
-def ttt_verificar():
-    ganar = [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]
-    for a, b, c in ganar:
-        if ttt_tablero[a] == ttt_tablero[b] == ttt_tablero[c]:
-            return ttt_tablero[a]
-    if all(c in ["X", "O"] for c in ttt_tablero):
-        return "Empate"
-    return None
-
-def dibujar_ahorcado(intentos):
-    fallos = 6 - intentos
-    dibujo = "🪢"
-    if fallos >= 1: dibujo += "🟡"
-    if fallos >= 2: dibujo += "🟩"
-    if fallos >= 3: dibujo += "🟦"
-    if fallos >= 4: dibujo += "🟦"
-    if fallos >= 5: dibujo += "🟪"
-    if fallos >= 6: dibujo += "🟪💀"
-    return dibujo
-
-def ahorcado_estado():
-    estado = " ".join([l if l in ahorcado_adivinadas else "_" for l in ahorcado_palabra])
-    letras = ", ".join(sorted(ahorcado_adivinadas)) if ahorcado_adivinadas else "ninguna"
-    return f"{dibujar_ahorcado(ahorcado_intentos)} | {estado} | Intentos: {ahorcado_intentos} | Letras: {letras}"
-
-def comando(s, user, cmd, arg):
-    global trivia_on, trivia_r, bpm_n, ttt_activo, ttt_x, ttt_o, ttt_turno, ttt_tablero
-    global ahorcado_activo, ahorcado_palabra, ahorcado_adivinadas, ahorcado_intentos, ahorcado_jugador
-    global num_activo, num_secreto, num_jugador
-    global vf_activo, vf_pregunta, vf_respuesta
+class Bot(commands.Bot):
+    def __init__(self):
+        super().__init__(token=TOKEN, prefix="!", initial_channels=[CANAL])
     
-    if cmd in ["!comandos", "!ayuda", "!help"]:
-        enviar(s, "📜 INFO: !redes, !sobre, !normas, !prime. 🎉 DIVERSIÓN: !festero, !vf, !reto, !bola [pregunta], !dado, !moneda, !ppt [piedra/papel/tijera].")
-        enviar(s, "🎮 JUEGOS: !3enraya (!unirse, !mover), !ahorcado (!letra), !numero (!adivinanum), !trivia (!respuesta), !ruleta, !bpm (!adivinarbpm).")
-    elif cmd == "!redes":
-        enviar(s, "🔗 Sígueme: Kick: https://kick.com/jonasrdboficial | YouTube: https://www.youtube.com/@JonasRDB | FB: https://www.facebook.com/profile.php?id=61582389543371")
-    elif cmd == "!sobre":
-        enviar(s, "🎧 JONAS RDB // HARD DANCE. DJ alicantino criado entre vinilos desde 1994. +30 años haciendo vibrar pistas con Hard Dance, Remember y pura energía rave. 🚀")
-    elif cmd == "!normas":
-        enviar(s, "⚠️ NORMAS: 1️⃣ Lenguaje respetuoso. 2️⃣ Emotes sin ofender. 3️⃣ Críticas constructivas SÍ, ataques NO. 🚫 TOLERANCIA CERO: amenazas, acoso, doxxing, odio o spam. ⛔ Incumplir = BAN PERMANENTE. ¡Disfruta! 🎧")
-    elif cmd in ["!prime", "!suscri"]:
-        enviar(s, "👑 ¡Suscríbete GRATIS con Twitch Prime! Apoya el canal sin coste extra, desbloquea emotes y ayuda a que la fiesta no pare. ¡Gracias! ❤️")
-    elif cmd in ["!festero", "!fiesta", "!animado"]:
-        p = random.randint(0, 100)
-        if p >= 85: frase = f"🔥 ¡@{user} está al {p}% de festero! ¡A ROMPERLA! 🎉"
-        elif p >= 65: frase = f"🎉 @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
-        elif p >= 45: frase = f"🎶 @{user} está al {p}% de festero. Vas bien, ¡sigue bailando! 💃"
-        elif p >= 25: frase = f"😐 @{user} está al {p}% de festero. ¡Despierta que empieza la sesión! ⚡"
-        else: frase = f"😴 @{user} está al {p}% sin ganas... ¿Necesitas un Red Bull? 🥱"
-        enviar(s, frase)
-    elif cmd in ["!vf", "!verdaderofalso"]:
-        if vf_activo:
-            enviar(s, f"Ya hay pregunta activa: {vf_pregunta} (Responde !v o !f)")
-        else:
-            vf_activo = True
-            q, a = random.choice(preguntas_vf)
-            vf_pregunta, vf_respuesta = q, a
-            enviar(s, f"🧠 ¡VERDADERO O FALSO! {vf_pregunta} (Responde !v o !verdadero / !f o !falso)")
-    elif cmd in ["!v", "!verdadero", "!f", "!falso"]:
-        if not vf_activo:
-            enviar(s, "No hay pregunta activa. Inicia con !vf")
-        else:
-            resp_user = "verdadero" if cmd in ["!v", "!verdadero"] else "falso"
-            if resp_user == vf_respuesta:
-                enviar(s, f"🎉 ¡CORRECTO @{user}! Era {vf_respuesta.capitalize()}. ¡Escribe !vf para otra!")
+    async def event_ready(self):
+        print(f"✅ Bot listo en #{CANAL}!")
+        print(f"🤖 Conectado como: {self.nick}")
+        print("🎮 Escribe en Twitch: !comandos")
+    
+    async def event_message(self, message):
+        global ultimo_mensaje
+        if message.echo:
+            return
+        
+        user = message.author.name
+        content = message.content.strip()
+        ultimo_mensaje = time.time()
+        
+        print(f"[{user}]: {content}")
+        
+        if content.startswith("!"):
+            await self.comando(message, user, content)
+    
+    async def comando(self, message, user, content):
+        global trivia_on, trivia_r, bpm_n, ttt_activo, ttt_x, ttt_o, ttt_turno, ttt_tablero
+        global ahorcado_activo, ahorcado_palabra, ahorcado_adivinadas, ahorcado_intentos, ahorcado_jugador
+        global num_activo, num_secreto, num_jugador
+        global vf_activo, vf_pregunta, vf_respuesta
+        
+        parts = content.split(" ", 1)
+        cmd = parts[0].lower()
+        arg = parts[1] if len(parts) > 1 else ""
+        
+        if cmd in ["!comandos", "!ayuda", "!help"]:
+            await message.channel.send("📜 INFO: !redes, !sobre, !normas, !prime. 🎉 DIVERSIÓN: !festero, !vf, !reto, !bola [pregunta], !dado, !moneda, !ppt [piedra/papel/tijera].")
+            await message.channel.send("🎮 JUEGOS: !3enraya (!unirse, !mover), !ahorcado (!letra), !numero (!adivinanum), !trivia (!respuesta), !ruleta, !bpm (!adivinarbpm).")
+        elif cmd == "!redes":
+            await message.channel.send("🔗 Sígueme: Kick: https://kick.com/jonasrdboficial | YouTube: https://www.youtube.com/@JonasRDB | FB: https://www.facebook.com/profile.php?id=61582389543371")
+        elif cmd == "!sobre":
+            await message.channel.send(" JONAS RDB // HARD DANCE. DJ alicantino criado entre vinilos desde 1994. +30 años haciendo vibrar pistas con Hard Dance, Remember y pura energía rave. 🚀")
+        elif cmd == "!normas":
+            await message.channel.send("⚠️ NORMAS: 1️⃣ Lenguaje respetuoso. 2️⃣ Emotes sin ofender. 3️⃣ Críticas constructivas SÍ, ataques NO. 🚫 TOLERANCIA CERO: amenazas, acoso, doxxing, odio o spam. ⛔ Incumplir = BAN PERMANENTE. ¡Disfruta! 🎧")
+        elif cmd in ["!prime", "!suscri"]:
+            await message.channel.send(" ¡Suscríbete GRATIS con Twitch Prime! Apoya el canal sin coste extra, desbloquea emotes y ayuda a que la fiesta no pare. ¡Gracias! ❤️")
+        elif cmd in ["!festero", "!fiesta", "!animado"]:
+            p = random.randint(0, 100)
+            if p >= 85: frase = f"🔥 ¡@{user} está al {p}% de festero! ¡A ROMPERLA! 🎉"
+            elif p >= 65: frase = f" @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
+            elif p >= 45: frase = f"🎶 @{user} está al {p}% de festero. Vas bien, ¡sigue bailando! 💃"
+            elif p >= 25: frase = f"😐 @{user} está al {p}% de festero. ¡Despierta que empieza la sesión! ⚡"
+            else: frase = f"😴 @{user} está al {p}% sin ganas... ¿Necesitas un Red Bull? 🥱"
+            await message.channel.send(frase)
+        elif cmd in ["!vf", "!verdaderofalso"]:
+            if vf_activo:
+                await message.channel.send(f"Ya hay pregunta activa: {vf_pregunta} (Responde !v o !f)")
             else:
-                enviar(s, f"❌ Incorrecto @{user}. La respuesta era {vf_respuesta.capitalize()}. ¡Escribe !vf para otra!")
-            vf_activo = False
-    elif cmd in ["!3enraya", "!tictactoe"]:
-        if ttt_activo:
-            enviar(s, f"Ya hay partida en curso. Tablero:\n{ttt_imprimir()}")
-        else:
-            ttt_activo, ttt_x, ttt_o, ttt_turno = True, user, "", "X"
-            ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-            enviar(s, f"🎮 @{user} inició 3 en Raya! Otro viewer debe escribir !unirse para jugar como 'O'.")
-    elif cmd == "!unirse":
-        if not ttt_activo:
-            enviar(s, "No hay partida activa. Inicia con !3enraya")
-        elif ttt_o != "":
-            enviar(s, "La partida ya tiene 2 jugadores.")
-        elif user == ttt_x:
-            enviar(s, "No puedes jugar contra ti mismo.")
-        else:
-            ttt_o = user
-            enviar(s, f"🎮 @{ttt_o} se unió como 'O'. ¡@{ttt_x} (X), es tu turno! Escribe: !mover [1-9]")
-    elif cmd == "!mover":
-        if not ttt_activo:
-            enviar(s, "No hay partida activa. Inicia con !3enraya")
-            return
-        if user not in [ttt_x, ttt_o]:
-            enviar(s, "No eres parte de esta partida.")
-            return
-        if (ttt_turno == "X" and user != ttt_x) or (ttt_turno == "O" and user != ttt_o):
-            enviar(s, f"No es tu turno. Le toca a {'X' if ttt_turno == 'X' else 'O'}.")
-            return
-        pos_str = arg.strip()
-        if not pos_str.isdigit() or not (1 <= int(pos_str) <= 9):
-            enviar(s, "Usa un número del 1 al 9.")
-            return
-        pos = int(pos_str) - 1
-        if ttt_tablero[pos] in ["X", "O"]:
-            enviar(s, "Casilla ocupada.")
-            return
-        ttt_tablero[pos] = ttt_turno
-        ganador = ttt_verificar()
-        if ganador == "Empate":
-            enviar(s, f"🤝 ¡Empate! Tablero:\n{ttt_imprimir()}")
-            ttt_activo = False
-        elif ganador:
-            enviar(s, f"🎉 ¡GANADOR! @{ttt_x if ganador == 'X' else ttt_o}!\n{ttt_imprimir()}")
-            ttt_activo = False
-        else:
-            ttt_turno = "O" if ttt_turno == "X" else "X"
-            enviar(s, f"Turno de {ttt_turno} (@{ttt_x if ttt_turno == 'X' else ttt_o}). Escribe: !mover [1-9]\n{ttt_imprimir()}")
-    elif cmd == "!cancelar3":
-        if ttt_activo and (user == ttt_x or user == CANAL):
-            ttt_activo = False
-            enviar(s, "🚫 Partida cancelada.")
-        else:
-            enviar(s, "No hay partida activa.")
-    elif cmd == "!tablero":
-        if ttt_activo:
-            enviar(s, f"Tablero:\n{ttt_imprimir()}\nTurno: {ttt_turno}")
-        else:
-            enviar(s, "No hay partida activa.")
-    elif cmd == "!ahorcado":
-        if ahorcado_activo:
-            enviar(s, f"Ya hay ahorcado activo. Estado: {ahorcado_estado()}")
-        else:
-            ahorcado_activo = True
-            ahorcado_palabra = random.choice(palabras_ahorcado)
-            ahorcado_adivinadas = set()
-            ahorcado_intentos = 6
-            ahorcado_jugador = user
-            enviar(s, f"🎮 @{user} inició el AHORCADO! Palabra secreta: {ahorcado_estado()} | Escribe !letra [a-z]")
-    elif cmd == "!letra":
-        if not ahorcado_activo:
-            enviar(s, "No hay ahorcado activo. Inicia con !ahorcado")
-            return
-        letra = arg.strip().lower()
-        if len(letra) != 1 or not letra.isalpha():
-            enviar(s, "Escribe UNA sola letra. Ejemplo: !letra a")
-            return
-        if letra in ahorcado_adivinadas:
-            enviar(s, f"Ya probaste '{letra}'. Elige otra.")
-            return
-        ahorcado_adivinadas.add(letra)
-        if letra in ahorcado_palabra:
-            if all(l in ahorcado_adivinadas for l in ahorcado_palabra):
-                enviar(s, f"🎉 ¡@{user} GANÓ! La palabra era '{ahorcado_palabra}'. ¡Escribe !ahorcado para otra!")
-                ahorcado_activo = False
+                vf_activo = True
+                q, a = random.choice(preguntas_vf)
+                vf_pregunta, vf_respuesta = q, a
+                await message.channel.send(f"🧠 ¡VERDADERO O FALSO! {vf_pregunta} (Responde !v o !verdadero / !f o !falso)")
+        elif cmd in ["!v", "!verdadero", "!f", "!falso"]:
+            if not vf_activo:
+                await message.channel.send("No hay pregunta activa. Inicia con !vf")
             else:
-                enviar(s, f"✅ ¡Bien! '{letra}' está. Estado: {ahorcado_estado()}")
-        else:
-            ahorcado_intentos -= 1
-            if ahorcado_intentos <= 0:
-                enviar(s, f"💀 ¡PERDISTE @{user}! {dibujar_ahorcado(0)} La palabra era '{ahorcado_palabra}'. ¡Escribe !ahorcado para otra!")
-                ahorcado_activo = False
+                resp_user = "verdadero" if cmd in ["!v", "!verdadero"] else "falso"
+                if resp_user == vf_respuesta:
+                    await message.channel.send(f"🎉 ¡CORRECTO @{user}! Era {vf_respuesta.capitalize()}. ¡Escribe !vf para otra!")
+                else:
+                    await message.channel.send(f"❌ Incorrecto @{user}. La respuesta era {vf_respuesta.capitalize()}. ¡Escribe !vf para otra!")
+                vf_activo = False
+        elif cmd in ["!3enraya", "!tictactoe"]:
+            if ttt_activo:
+                tablero_str = f"{ttt_tablero[0]}|{ttt_tablero[1]}|{ttt_tablero[2]}\\n-----\\n{ttt_tablero[3]}|{ttt_tablero[4]}|{ttt_tablero[5]}\\n-----\\n{ttt_tablero[6]}|{ttt_tablero[7]}|{ttt_tablero[8]}"
+                await message.channel.send(f"Ya hay partida en curso. Tablero:\\n{tablero_str}")
             else:
-                enviar(s, f"❌ '{letra}' NO está. Estado: {ahorcado_estado()}")
-    elif cmd == "!rendirse":
-        if ahorcado_activo and user == ahorcado_jugador:
-            enviar(s, f"🏳️ @{user} se rindió. La palabra era '{ahorcado_palabra}'.")
-            ahorcado_activo = False
-        else:
-            enviar(s, "No hay ahorcado activo o no eres el jugador.")
-    elif cmd == "!numero":
-        if num_activo:
-            enviar(s, "Ya hay juego activo. Escribe !adivinanum [1-100]")
-        else:
-            num_activo = True
-            num_secreto = random.randint(1, 100)
-            num_jugador = user
-            enviar(s, f"🔢 @{user} inició 'Adivina el Número' (1-100). Escribe: !adivinanum [número]")
-    elif cmd == "!adivinanum":
-        if not num_activo:
-            enviar(s, "No hay juego activo. Inicia con !numero")
-            return
-        try:
-            n = int(arg.strip())
-            if n < 1 or n > 100:
-                enviar(s, "El número debe ser entre 1 y 100.")
+                ttt_activo, ttt_x, ttt_o, ttt_turno = True, user, "", "X"
+                ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+                await message.channel.send(f"🎮 @{user} inició 3 en Raya! Otro viewer debe escribir !unirse para jugar como 'O'.")
+        elif cmd == "!unirse":
+            if not ttt_activo:
+                await message.channel.send("No hay partida activa. Inicia con !3enraya")
+            elif ttt_o != "":
+                await message.channel.send("La partida ya tiene 2 jugadores.")
+            elif user == ttt_x:
+                await message.channel.send("No puedes jugar contra ti mismo.")
+            else:
+                ttt_o = user
+                await message.channel.send(f"🎮 @{ttt_o} se unió como 'O'. ¡@{ttt_x} (X), es tu turno! Escribe: !mover [1-9]")
+        elif cmd == "!mover":
+            if not ttt_activo:
+                await message.channel.send("No hay partida activa. Inicia con !3enraya")
                 return
-            if n == num_secreto:
-                enviar(s, f"🎉 ¡@{user} ACERTÓ! Era {num_secreto}. ¡Escribe !numero para otra!")
-                num_activo = False
-            elif n < num_secreto:
-                enviar(s, f"⬆️ @{user}: el número es MÁS ALTO que {n}.")
+            if user not in [ttt_x, ttt_o]:
+                await message.channel.send("No eres parte de esta partida.")
+                return
+            if (ttt_turno == "X" and user != ttt_x) or (ttt_turno == "O" and user != ttt_o):
+                await message.channel.send(f"No es tu turno. Le toca a {'X' if ttt_turno == 'X' else 'O'}.")
+                return
+            pos_str = arg.strip()
+            if not pos_str.isdigit() or not (1 <= int(pos_str) <= 9):
+                await message.channel.send("Usa un número del 1 al 9.")
+                return
+            pos = int(pos_str) - 1
+            if ttt_tablero[pos] in ["X", "O"]:
+                await message.channel.send("Casilla ocupada.")
+                return
+            ttt_tablero[pos] = ttt_turno
+            ganar = [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]
+            ganador = None
+            for a,b,c in ganar:
+                if ttt_tablero[a] == ttt_tablero[b] == ttt_tablero[c]:
+                    ganador = ttt_tablero[a]
+                    break
+            if not ganador and all(c in ["X", "O"] for c in ttt_tablero):
+                ganador = "Empate"
+            if ganador == "Empate":
+                tablero_str = f"{ttt_tablero[0]}|{ttt_tablero[1]}|{ttt_tablero[2]}\\n-----\\n{ttt_tablero[3]}|{ttt_tablero[4]}|{ttt_tablero[5]}\\n-----\\n{ttt_tablero[6]}|{ttt_tablero[7]}|{ttt_tablero[8]}"
+                await message.channel.send(f"🤝 ¡Empate! Tablero:\\n{tablero_str}")
+                ttt_activo = False
+            elif ganador:
+                tablero_str = f"{ttt_tablero[0]}|{ttt_tablero[1]}|{ttt_tablero[2]}\\n-----\\n{ttt_tablero[3]}|{ttt_tablero[4]}|{ttt_tablero[5]}\\n-----\\n{ttt_tablero[6]}|{ttt_tablero[7]}|{ttt_tablero[8]}"
+                await message.channel.send(f"🎉 ¡GANADOR! @{ttt_x if ganador == 'X' else ttt_o}!\\n{tablero_str}")
+                ttt_activo = False
             else:
-                enviar(s, f"⬇️ @{user}: el número es MÁS BAJO que {n}.")
-        except:
-            enviar(s, "Escribe un número válido.")
-    elif cmd in ["!ppt", "!piedra"]:
-        opciones = ["piedra", "papel", "tijera"]
-        eleccion_bot = random.choice(opciones)
-        eleccion_user = arg.strip().lower()
-        if eleccion_user not in opciones:
-            enviar(s, "Elige: piedra, papel o tijera. Ejemplo: !ppt piedra")
-            return
-        if eleccion_user == eleccion_bot:
-            resultado = f"🤝 Empate. Ambos {eleccion_user}."
-        elif (eleccion_user == "piedra" and eleccion_bot == "tijera") or (eleccion_user == "papel" and eleccion_bot == "piedra") or (eleccion_user == "tijera" and eleccion_bot == "papel"):
-            resultado = f"🎉 ¡@{user} GANA! {eleccion_user} vence a {eleccion_bot}."
-        else:
-            resultado = f"😈 ¡Gana el bot! {eleccion_bot} vence a {eleccion_user}."
-        enviar(s, f"🪨📄✂️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
-    elif cmd == "!dado":
-        resultado = random.randint(1, 6)
-        emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
-        enviar(s, f"🎲 @{user} tiró el dado: {emojis[resultado]} {resultado}")
-    elif cmd == "!moneda":
-        resultado = random.choice(["CARA 👑", "CRUZ ✝️"])
-        enviar(s, f"🪙 @{user} lanzó la moneda: ¡{resultado}!")
-    elif cmd in ["!bola", "!bola8"]:
-        if not arg.strip():
-            enviar(s, "Haz una pregunta. Ejemplo: !bola ¿Iré a un rave?")
-            return
-        enviar(s, f"🔮 @{user}: {random.choice(respuestas_bola)}")
-    elif cmd in ["!reto", "!verdad"]:
-        tipo = random.choice(["RETO 🎯", "VERDAD 💬"])
-        contenido = random.choice(retos) if tipo.startswith("RETO") else random.choice(verdades)
-        enviar(s, f"🎭 @{user} te toca un {tipo}: {contenido}")
-    elif cmd == "!trivia" and not trivia_on:
-        qs = [{"p":"BPM del techno?","r":"130"},{"p":"Rey techno Detroit?","r":"juan atkins"},{"p":"House + techno?","r":"tech house"},{"p":"Cuna drum&bass?","r":"londres"},{"p":"Que es BPM?","r":"beats por minuto"}]
-        q = random.choice(qs)
-        trivia_on, trivia_r = True, q["r"]
-        enviar(s, f"🎵 TRIVIA! {q['p']} (Responde: !respuesta [tu respuesta])")
-    elif cmd == "!respuesta" and trivia_on:
-        if arg.lower().strip() == trivia_r:
-            enviar(s, f"🎉 ¡CORRECTO @{user}!")
-            trivia_on = False
-        else:
-            enviar(s, f"❌ Incorrecto @{user}.")
-    elif cmd == "!ruleta":
-        g = random.choice(["Techno","House","Trance","Drum&Bass","Dubstep","Hardstyle","Remember"])
-        enviar(s, f"🎲 ¡Ruleta! Género: {g}. ¡Pon una canción!")
-    elif cmd == "!bpm":
-        bpm_n = random.randint(120, 174)
-        enviar(s, f"🎧 Adivina el BPM (120-174): !adivinarbpm [numero]")
-    elif cmd == "!adivinarbpm" and bpm_n is not None:
-        try:
-            n = int(arg)
-            if n == bpm_n:
-                enviar(s, f"🎉 ¡EXACTO @{user}! Era {bpm_n} BPM.")
-                bpm_n = None
-            elif abs(n - bpm_n) <= 5:
-                enviar(s, f"🔥 ¡Muy cerca @{user}! A {abs(n-bpm_n)} BPM.")
+                ttt_turno = "O" if ttt_turno == "X" else "X"
+                tablero_str = f"{ttt_tablero[0]}|{ttt_tablero[1]}|{ttt_tablero[2]}\\n-----\\n{ttt_tablero[3]}|{ttt_tablero[4]}|{ttt_tablero[5]}\\n-----\\n{ttt_tablero[6]}|{ttt_tablero[7]}|{ttt_tablero[8]}"
+                await message.channel.send(f"Turno de {ttt_turno} (@{ttt_x if ttt_turno == 'X' else ttt_o}). Escribe: !mover [1-9]\\n{tablero_str}")
+        elif cmd == "!cancelar3":
+            if ttt_activo and (user == ttt_x or user == CANAL):
+                ttt_activo = False
+                await message.channel.send("🚫 Partida cancelada.")
             else:
-                enviar(s, f"❌ Frío @{user}.")
-        except:
-            enviar(s, "Escribe un número válido.")
-
-def main():
-    global ultimo_mensaje
-    print("🚀 Bot de Twitch para la nube (Railway)")
-    print(f"📺 Canal: #{CANAL}")
-    print(f"🤖 Bot: {BOT}")
-    print(f"🧠 Gemini: {'✅ Configurado' if GEMINI_KEY else '❌ No configurado (IA desactivada)'}")
-    
-    s = conectar()
-    print(f"✅ Bot listo en #{CANAL}!")
-    print("🎮 Escribe en Twitch: !comandos")
-    ultimo_mensaje = time.time()
-    
-    while True:
-        try:
-            if time.time() - ultimo_mensaje > 180:
-                enviar(s, random.choice(frases_animar))
-                ultimo_mensaje = time.time()
-            
-            data = s.recv(4096).decode('utf-8', errors='ignore')
-            if data.startswith("PING"):
-                s.send("PONG\r\n".encode())
-            elif "PRIVMSG" in data:
-                ultimo_mensaje = time.time()
-                parts = data.split(" ", 3)
-                if len(parts) >= 4:
-                    user = parts[0].split("!")[0][1:]
-                    msg = parts[3][1:].strip()
-                    print(f"[{user}]: {msg}")
-                    
-                    if f"@{BOT.lower()}" in msg.lower():
-                        preg = msg.lower().replace(f"@{BOT.lower()}", "").strip()
-                        if len(preg) > 2:
-                            print(f"[IA Gemini] Procesando: {preg}")
-                            resp = ia_gemini(preg)
-                            if resp:
-                                enviar(s, resp[:400])
-                    
-                    if msg.startswith("!"):
-                        pc = msg.split(" ", 1)
-                        comando(s, user, pc[0].lower(), pc[1] if len(pc) > 1 else "")
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            print("🔄 Reconectando en 5 segundos...")
-            time.sleep(5)
+                await message.channel.send("No hay partida activa.")
+        elif cmd == "!ahorcado":
+            if ahorcado_activo:
+                estado = " ".join([l if l in ahorcado_adivinadas else "_" for l in ahorcado_palabra])
+                await message.channel.send(f"Ya hay ahorcado activo. Estado: {estado}")
+            else:
+                ahorcado_activo = True
+                ahorcado_palabra = random.choice(palabras_ahorcado)
+                ahorcado_adivinadas = set()
+                ahorcado_intentos = 6
+                ahorcado_jugador = user
+                estado = " ".join(["_" for l in ahorcado_palabra])
+                await message.channel.send(f"🎮 @{user} inició el AHORCADO! Palabra secreta: {estado} | Escribe !letra [a-z]")
+        elif cmd == "!letra":
+            if not ahorcado_activo:
+                await message.channel.send("No hay ahorcado activo. Inicia con !ahorcado")
+                return
+            letra = arg.strip().lower()
+            if len(letra) != 1 or not letra.isalpha():
+                await message.channel.send("Escribe UNA sola letra. Ejemplo: !letra a")
+                return
+            if letra in ahorcado_adivinadas:
+                await message.channel.send(f"Ya probaste '{letra}'. Elige otra.")
+                return
+            ahorcado_adivinadas.add(letra)
+            if letra in ahorcado_palabra:
+                if all(l in ahorcado_adivinadas for l in ahorcado_palabra):
+                    await message.channel.send(f"🎉 ¡@{user} GANÓ! La palabra era '{ahorcado_palabra}'. ¡Escribe !ahorcado para otra!")
+                    ahorcado_activo = False
+                else:
+                    estado = " ".join([l if l in ahorcado_adivinadas else "_" for l in ahorcado_palabra])
+                    await message.channel.send(f"✅ ¡Bien! '{letra}' está. Estado: {estado}")
+            else:
+                ahorcado_intentos -= 1
+                if ahorcado_intentos <= 0:
+                    await message.channel.send(f"💀 ¡PERDISTE @{user}! La palabra era '{ahorcado_palabra}'. ¡Escribe !ahorcado para otra!")
+                    ahorcado_activo = False
+                else:
+                    estado = " ".join([l if l in ahorcado_adivinadas else "_" for l in ahorcado_palabra])
+                    await message.channel.send(f"❌ '{letra}' NO está. Estado: {estado} | Intentos: {ahorcado_intentos}")
+        elif cmd == "!numero":
+            if num_activo:
+                await message.channel.send("Ya hay juego activo. Escribe !adivinanum [1-100]")
+            else:
+                num_activo = True
+                num_secreto = random.randint(1, 100)
+                num_jugador = user
+                await message.channel.send(f"🔢 @{user} inició 'Adivina el Número' (1-100). Escribe: !adivinanum [número]")
+        elif cmd == "!adivinanum":
+            if not num_activo:
+                await message.channel.send("No hay juego activo. Inicia con !numero")
+                return
             try:
-                s = conectar()
+                n = int(arg.strip())
+                if n < 1 or n > 100:
+                    await message.channel.send("El número debe ser entre 1 y 100.")
+                    return
+                if n == num_secreto:
+                    await message.channel.send(f"🎉 ¡@{user} ACERTÓ! Era {num_secreto}. ¡Escribe !numero para otra!")
+                    num_activo = False
+                elif n < num_secreto:
+                    await message.channel.send(f"⬆️ @{user}: el número es MÁS ALTO que {n}.")
+                else:
+                    await message.channel.send(f"️ @{user}: el número es MÁS BAJO que {n}.")
             except:
-                pass
+                await message.channel.send("Escribe un número válido.")
+        elif cmd in ["!ppt", "!piedra"]:
+            opciones = ["piedra", "papel", "tijera"]
+            eleccion_bot = random.choice(opciones)
+            eleccion_user = arg.strip().lower()
+            if eleccion_user not in opciones:
+                await message.channel.send("Elige: piedra, papel o tijera. Ejemplo: !ppt piedra")
+                return
+            if eleccion_user == eleccion_bot:
+                resultado = f" Empate. Ambos {eleccion_user}."
+            elif (eleccion_user == "piedra" and eleccion_bot == "tijera") or (eleccion_user == "papel" and eleccion_bot == "piedra") or (eleccion_user == "tijera" and eleccion_bot == "papel"):
+                resultado = f"🎉 ¡@{user} GANA! {eleccion_user} vence a {eleccion_bot}."
+            else:
+                resultado = f"😈 ¡Gana el bot! {eleccion_bot} vence a {eleccion_user}."
+            await message.channel.send(f"🪨📄✂️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
+        elif cmd == "!dado":
+            resultado = random.randint(1, 6)
+            emojis = {1: "", 2: "⚁", 3: "⚂", 4: "", 5: "⚄", 6: "⚅"}
+            await message.channel.send(f"🎲 @{user} tiró el dado: {emojis[resultado]} {resultado}")
+        elif cmd == "!moneda":
+            resultado = random.choice(["CARA 👑", "CRUZ ✝️"])
+            await message.channel.send(f"🪙 @{user} lanzó la moneda: ¡{resultado}!")
+        elif cmd in ["!bola", "!bola8"]:
+            if not arg.strip():
+                await message.channel.send("Haz una pregunta. Ejemplo: !bola ¿Iré a un rave?")
+                return
+            await message.channel.send(f"🔮 @{user}: {random.choice(respuestas_bola)}")
+        elif cmd in ["!reto", "!verdad"]:
+            tipo = random.choice(["RETO 🎯", "VERDAD 💬"])
+            contenido = random.choice(retos) if tipo.startswith("RETO") else random.choice(verdades)
+            await message.channel.send(f" @{user} te toca un {tipo}: {contenido}")
+        elif cmd == "!trivia" and not trivia_on:
+            qs = [{"p":"BPM del techno?","r":"130"},{"p":"Rey techno Detroit?","r":"juan atkins"},{"p":"House + techno?","r":"tech house"},{"p":"Cuna drum&bass?","r":"londres"},{"p":"Que es BPM?","r":"beats por minuto"}]
+            q = random.choice(qs)
+            trivia_on, trivia_r = True, q["r"]
+            await message.channel.send(f"🎵 TRIVIA! {q['p']} (Responde: !respuesta [tu respuesta])")
+        elif cmd == "!respuesta" and trivia_on:
+            if arg.lower().strip() == trivia_r:
+                await message.channel.send(f"🎉 ¡CORRECTO @{user}!")
+                trivia_on = False
+            else:
+                await message.channel.send(f"❌ Incorrecto @{user}.")
+        elif cmd == "!ruleta":
+            g = random.choice(["Techno","House","Trance","Drum&Bass","Dubstep","Hardstyle","Remember"])
+            await message.channel.send(f"🎲 ¡Ruleta! Género: {g}. ¡Pon una canción!")
+        elif cmd == "!bpm":
+            bpm_n = random.randint(120, 174)
+            await message.channel.send(f"🎧 Adivina el BPM (120-174): !adivinarbpm [numero]")
+        elif cmd == "!adivinarbpm" and bpm_n is not None:
+            try:
+                n = int(arg)
+                if n == bpm_n:
+                    await message.channel.send(f" ¡EXACTO @{user}! Era {bpm_n} BPM.")
+                    bpm_n = None
+                elif abs(n - bpm_n) <= 5:
+                    await message.channel.send(f" ¡Muy cerca @{user}! A {abs(n-bpm_n)} BPM.")
+                else:
+                    await message.channel.send(f"❌ Frío @{user}.")
+            except:
+                await message.channel.send("Escribe un número válido.")
+
+bot = Bot()
 
 if __name__ == "__main__":
-    main()
+    bot.run()
+"""
+
+ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bot.py')
+with open(ruta, 'w', encoding='utf-8') as f:
+    f.write(codigo)
+
+req_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'requirements.txt')
+with open(req_path, 'w') as f:
+    f.write("twitchio\n")
+
+print(f"✅ Archivo creado: {ruta}")
+print("Ahora sube bot.py y requirements.txt a GitHub")
