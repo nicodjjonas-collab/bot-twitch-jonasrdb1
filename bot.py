@@ -1,9 +1,8 @@
 import os
 import random
 import time
-import asyncio
 import twitchio
-from twitchio.ext import commands
+from twitchio.ext import commands, routines
 from google import genai
 
 # ----------------------------------------
@@ -28,7 +27,7 @@ class Bot(commands.Bot):
         )
         self.ultimo_mensaje = time.time()
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm", "ResidentSleeper", "FireChest"]
-        self.ultimos_mensajes_chat = []  
+        self.ultimos_mensajes_chat = []  # Memoria temporal de los últimos mensajes del chat para contexto
         
         # Estados de los minijuegos
         self.ahorcado_activo = False
@@ -51,8 +50,9 @@ class Bot(commands.Bot):
     async def event_ready(self):
         print(f'¡Conectado a Twitch exitosamente!')
         print(f'Escuchando el canal: {CANAL}')
-        # Inicia el bucle autónomo en segundo plano
-        self.loop.create_task(self.animar_chat_autonomo())
+        # Iniciar la rutina autónoma en segundo plano
+        if not self.animar_chat_autonomo.is_running():
+            self.animar_chat_autonomo.start()
 
     async def event_message(self, message):
         if message.echo:
@@ -68,7 +68,7 @@ class Bot(commands.Bot):
         # Procesar comandos si los hay
         await self.handle_commands(message)
 
-        # Intervención espontánea (25% de probabilidad en mensajes normales)
+        # Intervención espontánea (25% de probabilidad en mensajes normales de la gente)
         if not message.content.startswith('!') and random.random() < 0.25 and ai_client:
             try:
                 canal_obj = self.get_channel(CANAL)
@@ -78,7 +78,7 @@ class Bot(commands.Bot):
                         f"Eres un espectador más y un colega fiestero en el chat de Twitch de un DJ de música Remember, Trance, Eurodance y Hard Dance. "
                         f"Contexto reciente del chat: [{contexto_chat}]. "
                         f"El último mensaje fue de {message.author.name}: '{message.content}'. "
-                        f"Responde de forma natural, corta (máximo 120 caracteres), informal, como un usuario real más. "
+                        f"Responde de forma natural, corta (máximo 120 caracteres), informal, como un usuario real más metiéndote en la conversación. "
                         f"Usa obligatoriamente al menos uno de estos emotes: {random.choice(self.emotes_twitch)}"
                     )
                     response = ai_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
@@ -86,6 +86,36 @@ class Bot(commands.Bot):
                     await canal_obj.send(respuesta[:150])
             except Exception as e:
                 print(f"Error en intervención espontánea: {e}")
+
+    # ----------------------------------------
+    # RUTINA AUTÓNOMA (ROMPEHIELOS)
+    # ----------------------------------------
+    @routines.routine(seconds=75)
+    async def animar_chat_autonomo(self):
+        # Si el chat lleva más de 2 minutos sin mensajes de nadie, la IA habla sola para animar
+        if time.time() - self.ultimo_mensaje > 120:
+            canal_obj = self.get_channel(CANAL)
+            if not canal_obj:
+                return
+            try:
+                if ai_client:
+                    prompt_autonomo = (
+                        f"Eres un espectador veterano y súper activo en el canal de Twitch del DJ Jonas RDB (música Remember, Trance, Eurodance y Hard Dance). "
+                        f"El chat lleva un par de minutos tranquilo. Escribe un mensaje corto y espontáneo (máximo 130 caracteres) preguntando qué temazo suena, animando o comentando algo de la sesión como uno más. "
+                        f"Usa obligatoriamente este emote: {random.choice(self.emotes_twitch)}"
+                    )
+                    response = ai_client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt_autonomo,
+                    )
+                    mensaje_animacion = response.text.strip().replace('\n', ' ')
+                else:
+                    mensaje_animacion = f"¡Vaya pepinazo de sesión familia! {random.choice(self.emotes_twitch)}"
+                
+                await canal_obj.send(mensaje_animacion)
+                self.ultimo_mensaje = time.time()
+            except Exception as e:
+                print(f"Error en bucle autónomo: {e}")
 
     # ----------------------------------------
     # COMANDOS DE AYUDA E INFORMACIÓN
@@ -109,38 +139,6 @@ class Bot(commands.Bot):
     @commands.command(name='prime')
     async def cmd_prime(self, ctx: commands.Context):
         await ctx.send("🔔 ¡SUSCRÍBETE CON AMAZON PRIME! Consigue insignias, emotes exclusivos y apoya las sesiones de JONAS RDB // HARD DANCE 🖤")
-
-    # ----------------------------------------
-    # INTELIGENCIA ARTIFICIAL AUTÓNOMA (ROMPEHIELOS)
-    # ----------------------------------------
-    async def animar_chat_autonomo(self):
-        while True:
-            await asyncio.sleep(75) # Revisa cada 75 segundos si el chat está parado
-
-            # Si el chat lleva más de 2 minutos sin mensajes de nadie, la IA habla sola para animar
-            if time.time() - self.ultimo_mensaje > 120:
-                canal_obj = self.get_channel(CANAL)
-                if not canal_obj:
-                    continue
-                try:
-                    if ai_client:
-                        prompt_autonomo = (
-                            f"Eres un espectador veterano y súper activo en el canal de Twitch del DJ Jonas RDB (música Remember, Trance, Eurodance y Hard Dance). "
-                            f"El chat lleva un par de minutos tranquilo. Escribe un mensaje corto y espontáneo (máximo 130 caracteres) preguntando qué temazo suena, animando o comentando algo de la sesión. "
-                            f"Usa obligatoriamente este emote: {random.choice(self.emotes_twitch)}"
-                        )
-                        response = ai_client.models.generate_content(
-                            model='gemini-2.5-flash',
-                            contents=prompt_autonomo,
-                        )
-                        mensaje_animacion = response.text.strip().replace('\n', ' ')
-                    else:
-                        mensaje_animacion = f"¡Vaya pepinazo de sesión familia! {random.choice(self.emotes_twitch)}"
-                    
-                    await canal_obj.send(mensaje_animacion)
-                    self.ultimo_mensaje = time.time()
-                except Exception as e:
-                    print(f"Error en bucle autónomo: {e}")
 
     # ----------------------------------------
     # IA MANUAL (!ia)
@@ -227,6 +225,30 @@ class Bot(commands.Bot):
         else:
             await ctx.send(f"Palabra: {oculto} | Intentos: {self.ahorcado_intentos}")
 
+    @commands.command(name='trivia')
+    async def trivia_start(self, ctx: commands.Context):
+        if self.trivia_activo: return await ctx.send("¡Ya hay un trivia activo! Responde con !r <A/B/C>")
+        preguntas = [
+            ("¿Cuántos BPM suele tener el Hardstyle? (A) 120 (B) 150 (C) 90", "B"),
+            ("¿Qué significa DJ? (A) Disc Jockey (B) Dance Jam (C) Digital Juke", "A"),
+            ("¿En qué década nació el Eurodance? (A) 70s (B) 80s (C) 90s", "C")
+        ]
+        pregunta, self.trivia_respuesta = random.choice(preguntas)
+        self.trivia_activo = True
+        await ctx.send(f"💡 TRIVIA: {pregunta} (Responde con !r A, !r B o !r C)")
+
+    @commands.command(name='r')
+    async def trivia_play(self, ctx: commands.Context):
+        if not self.trivia_activo: return
+        msg = ctx.message.content.split()
+        if len(msg) < 2: return
+        intento = msg[1].upper()
+        self.trivia_activo = False
+        if intento == self.trivia_respuesta:
+            await ctx.send(f"🎉 ¡Toma ya, @{ctx.author.name} ha acertado ({self.trivia_respuesta})!")
+        else:
+            await ctx.send(f"❌ Casi, @{ctx.author.name}. La correcta era la {self.trivia_respuesta}.")
+
     @commands.command(name='amor')
     async def amor(self, ctx: commands.Context):
         msg = ctx.message.content.split()
@@ -258,6 +280,64 @@ class Bot(commands.Bot):
         j = msg[1]
         res = "¡Empate! 🤝" if j == bot_elige else "¡Me ganaste! 🎉" if (j=="piedra" and bot_elige=="tijera") or (j=="papel" and bot_elige=="piedra") or (j=="tijera" and bot_elige=="papel") else "¡Gano yo, máquina! 🤖"
         await ctx.send(f"Elegiste {j}, yo saqué {bot_elige}. {res}")
+
+    @commands.command(name='adivinar')
+    async def start_adivinar(self, ctx: commands.Context):
+        if self.num_activo: return await ctx.send("¡Ya hay un número activo! Adivina con !n <numero>")
+        self.num_secreto = random.randint(1, 100)
+        self.num_activo = True
+        await ctx.send("🔢 He pensado un número del 1 al 100. ¡Adivina con !n <numero>")
+
+    @commands.command(name='n')
+    async def play_adivinar(self, ctx: commands.Context):
+        if not self.num_activo: return
+        try: intento = int(ctx.message.content.split()[1])
+        except: return
+        if intento == self.num_secreto:
+            self.num_activo = False
+            await ctx.send(f"🎉 ¡BRUTAL @{ctx.author.name}! Has acertado el número secreto ({self.num_secreto}).")
+        elif intento < self.num_secreto: await ctx.send(f"🔼 ¡Sube más, @{ctx.author.name}!")
+        else: await ctx.send(f"🔽 ¡Baja, @{ctx.author.name}!")
+
+    @commands.command(name='3enraya')
+    async def ttt_start(self, ctx: commands.Context):
+        self.ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        self.ttt_activo = True
+        t = self.ttt_tablero
+        await ctx.send(f"🎮 3 en raya contra el bot. Eres las X. Usa !casilla <1-9>. Tablero: [{t[0]}][{t[1]}][{t[2]}] - [{t[3]}][{t[4]}][{t[5]}] - [{t[6]}][{t[7]}][{t[8]}]")
+
+    @commands.command(name='casilla')
+    async def ttt_play(self, ctx: commands.Context):
+        if not self.ttt_activo: return
+        try:
+            c = int(ctx.message.content.split()[1]) - 1
+            if c < 0 or c > 8 or self.ttt_tablero[c] in ['X', 'O']: return await ctx.send("Casilla inválida o ya ocupada.")
+        except: return
+
+        self.ttt_tablero[c] = 'X'
+        if self.check_ganador('X'):
+            self.ttt_activo = False
+            return await ctx.send(f"🎉 ¡Impresionante @{ctx.author.name}, me has ganado al 3 en raya!")
+
+        libres = [i for i, x in enumerate(self.ttt_tablero) if x not in ['X', 'O']]
+        if not libres:
+            self.ttt_activo = False
+            return await ctx.send("🤝 ¡Empate técnico en el tablero!")
+            
+        self.ttt_tablero[random.choice(libres)] = 'O'
+        if self.check_ganador('O'):
+            self.ttt_activo = False
+            t = self.ttt_tablero
+            return await ctx.send(f"🤖 ¡Te gané! Tablero final: [{t[0]}][{t[1]}][{t[2]}] - [{t[3]}][{t[4]}][{t[5]}] - [{t[6]}][{t[7]}][{t[8]}]")
+
+        t = self.ttt_tablero
+        await ctx.send(f"🤖 Mi turno... Tablero: [{t[0]}][{t[1]}][{t[2]}] - [{t[3]}][{t[4]}][{t[5]}] - [{t[6]}][{t[7]}][{t[8]}]")
+
+    def check_ganador(self, f):
+        t = self.ttt_tablero
+        for a, b, c in [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]:
+            if t[a] == t[b] == t[c] == f: return True
+        return False
 
 if __name__ == '__main__':
     if not TOKEN or not CLIENT_ID or not CLIENT_SECRET:
