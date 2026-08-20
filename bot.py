@@ -12,6 +12,7 @@ from google import genai
 TOKEN = os.environ.get('TWITCH_TOKEN')
 CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID')
 CLIENT_SECRET = os.environ.get('TWITCH_CLIENT_SECRET')
+BOT_NICK = os.environ.get('TWITCH_BOT_NICK', 'jonasrdb').lower() 
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY')
 
@@ -22,7 +23,8 @@ class Bot(commands.Bot):
         super().__init__(
             token=TOKEN,
             client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET, 
+            client_secret=CLIENT_SECRET,
+            nick=BOT_NICK,
             prefix='!',
             initial_channels=[CANAL]
         )
@@ -49,11 +51,11 @@ class Bot(commands.Bot):
         self.trivia_respuesta = ""
 
     async def event_ready(self):
-        print('=== BOT CONECTADO CORRECTAMENTE A TWITCH ===')
+        print(f'=== BOT CONECTADO CORRECTAMENTE COMO {self.nick} ===')
         print(f'Canal objetivo: {CANAL}')
 
     async def event_channel_joined(self, channel):
-        print(f'=== UNIDO EXITOSAMENTE AL CANAL ===')
+        print(f'=== UNIDO EXITOSAMENTE AL CANAL: {CANAL} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
 
     async def bucle_autonomo_chat(self):
@@ -88,9 +90,8 @@ class Bot(commands.Bot):
         if message.echo:
             return
 
-        # Registro en consola para monitorizar actividad y comprobar recepción
+        # Registro detallado en consola para monitorizar actividad
         print(f"[CHAT] {message.author.name}: {message.content}")
-
         self.ultimo_mensaje = time.time()
         
         self.ultimos_mensajes_chat.append(f"{message.author.name}: {message.content}")
