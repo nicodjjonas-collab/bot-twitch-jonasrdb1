@@ -82,7 +82,7 @@ preguntas_vf = [
     ("El DJ Tiesto es originario de Alemania.", "falso"),
     ("El 'Drum and Bass' se caracteriza por ritmos rápidos de breakbeat.", "verdadero"),
     ("Beethoven escribió 9 sinfonías.", "verdadero"),
-    ("El 'Punk' rock se caracteriza por canciones largas y solos de guitarra complejos.", "falso"),
+    
     ("El grupo 'Daft Punk' es originario de Francia.", "verdadero")
 ]
 
