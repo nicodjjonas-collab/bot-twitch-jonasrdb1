@@ -1,19 +1,15 @@
-import os
-
-codigo = """import socket
+import socket
 import ssl
 import time
 import random
 import os
 import requests
 
-# CONFIGURACIÓN (se carga desde variables de entorno en Railway)
 TOKEN = os.environ.get('TWITCH_TOKEN', 'oauth:lrrg261q2uk90yfsia57pbhms9m8dk')
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb')
 BOT = os.environ.get('TWITCH_BOT', 'sesionesoldschool')
 GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
 
-# Variables de juegos
 trivia_on, trivia_r, bpm_n = False, "", None
 ultimo_mensaje = time.time()
 
@@ -29,15 +25,20 @@ vf_activo, vf_pregunta, vf_respuesta = False, "", ""
 frases_animar = [
     "¿Qué género os gusta más, techno o house? 🎧",
     "¿Alguien tiene algún set de Remember recomendado? 🔥",
-    "¿De dónde sois todos? ¡Saludad en el chat! ",
+    "¿De dónde sois todos? ¡Saludad en el chat! 🌍",
     "¿Cuál es vuestro BPM favorito para bailar? 💃",
-    "¿Techno duro o melódico? ¡Os leo! ",
+    "¿Techno duro o melódico? ¡Os leo! 👀",
     "¿Quién más está disfrutando de la sesión? 🏠",
     "¿Qué os parece la energía de hoy? ¡Subid el volumen! 🔊",
     "¡Escribe !comandos para ver todo lo que puedo hacer!"
 ]
 
-palabras_ahorcado = ["techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave", "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador", "acido", "detroit", "ibiza", "berlin", "minimal", "progressive", "hardcore", "remember", "makina", "eurodance", "disco"]
+palabras_ahorcado = [
+    "techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave",
+    "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador",
+    "acido", "detroit", "ibiza", "berlin", "minimal", "progressive",
+    "hardcore", "remember", "makina", "eurodance", "disco"
+]
 
 preguntas_vf = [
     ("Los Beatles se originaron en la ciudad de Liverpool.", "verdadero"),
@@ -77,17 +78,37 @@ preguntas_vf = [
     ("El grupo 'Daft Punk' es originario de Francia.", "verdadero")
 ]
 
-retos = ["Pon la canción que más te haga bailar ahora mismo 🎵", "Di tu género favorito y por qué 🎧", "Cuéntanos tu mejor experiencia en un rave ", "Nombra 3 DJs que te encanten 🎤", "¿Vinilo o digital? Defiende tu postura 💿", "Describe tu sesión perfecta en 3 palabras ✨", "¿Cuál fue el último track que te voló la cabeza? 🤯", "Recomienda un set para esta noche 🔥"]
-verdades = ["¿Cuál es tu guilty pleasure musical? 🎶", "¿Alguna vez has llorado con una canción? 😢", "¿Qué género no soportas? 🤔", "¿Cuál es el track más raro que tienes? ", "¿Techno a las 8am o house a las 4am? ⏰", "¿Tu momento más épico en una pista? ", "¿Qué DJ te hubiera gustado ver en vivo? 🎟️", "¿Vinilo más caro que has comprado? 💸"]
-respuestas_bola = ["Definitivamente sí 🔮", "Sin duda ✅", "Sí, totalmente ✅", "Las señales apuntan a que sí ✨", "Pregunta de nuevo más tarde 🔄", "Mejor no te digo ahora 🤫", "Mis fuentes dicen que no ❌", "Muy dudoso... ", "No cuentes con ello 🚫", "El universo dice que sí 🌟"]
+retos = [
+    "Pon la canción que más te haga bailar ahora mismo 🎵",
+    "Di tu género favorito y por qué 🎧",
+    "Cuéntanos tu mejor experiencia en un rave 🎪",
+    "Nombra 3 DJs que te encanten 🎤",
+    "¿Vinilo o digital? Defiende tu postura 💿",
+    "Describe tu sesión perfecta en 3 palabras ✨",
+    "¿Cuál fue el último track que te voló la cabeza? 🤯",
+    "Recomienda un set para esta noche 🔥"
+]
+verdades = [
+    "¿Cuál es tu guilty pleasure musical? 🎶",
+    "¿Alguna vez has llorado con una canción? 😢",
+    "¿Qué género no soportas? 🤔",
+    "¿Cuál es el track más raro que tienes? 🦄",
+    "¿Techno a las 8am o house a las 4am? ⏰",
+    "¿Tu momento más épico en una pista? 🕺",
+    "¿Qué DJ te hubiera gustado ver en vivo? 🎟️",
+    "¿Vinilo más caro que has comprado? 💸"
+]
+respuestas_bola = [
+    "Definitivamente sí 🔮", "Sin duda ✅", "Sí, totalmente ✅",
+    "Las señales apuntan a que sí ✨", "Pregunta de nuevo más tarde 🔄",
+    "Mejor no te digo ahora 🤫", "Mis fuentes dicen que no ❌",
+    "Muy dudoso... 🤔", "No cuentes con ello 🚫", "El universo dice que sí 🌟"
+]
 
 def conectar():
-    """Conecta a Twitch usando SSL (puerto 6697) - necesario para la nube"""
-    print(" Conectando con SSL al puerto 6697...")
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
-    
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s = context.wrap_socket(s)
     s.connect(("irc.chat.twitch.tv", 6697))
@@ -95,7 +116,6 @@ def conectar():
     s.send(f"NICK {BOT}\r\n".encode())
     s.send("CAP REQ :twitch.tv/commands\r\n".encode())
     s.send(f"JOIN #{CANAL}\r\n".encode())
-    print("✅ Conexión SSL establecida")
     return s
 
 def enviar(s, msg):
@@ -104,12 +124,11 @@ def enviar(s, msg):
     time.sleep(1.5)
 
 def ia_gemini(preg):
-    """Usa Gemini API (gratuita) en lugar de Ollama"""
     if not GEMINI_KEY:
         return "La IA no está configurada (falta GEMINI_KEY)."
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
-        prompt = f"Eres {BOT}, DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave y buen rollo. Pregunta del usuario: {preg}"
+        prompt = f"Eres {BOT}, DJ y animador del chat de JonasRDB. Responde en español, máximo 2 frases cortas, con energía rave. Pregunta del usuario: {preg}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"maxOutputTokens": 100, "temperature": 0.7}
@@ -138,10 +157,10 @@ def dibujar_ahorcado(intentos):
     fallos = 6 - intentos
     dibujo = "🪢"
     if fallos >= 1: dibujo += "🟡"
-    if fallos >= 2: dibujo += ""
+    if fallos >= 2: dibujo += "🟩"
     if fallos >= 3: dibujo += "🟦"
     if fallos >= 4: dibujo += "🟦"
-    if fallos >= 5: dibujo += ""
+    if fallos >= 5: dibujo += "🟪"
     if fallos >= 6: dibujo += "🟪💀"
     return dibujo
 
@@ -158,18 +177,18 @@ def comando(s, user, cmd, arg):
     
     if cmd in ["!comandos", "!ayuda", "!help"]:
         enviar(s, "📜 INFO: !redes, !sobre, !normas, !prime. 🎉 DIVERSIÓN: !festero, !vf, !reto, !bola [pregunta], !dado, !moneda, !ppt [piedra/papel/tijera].")
-        enviar(s, " JUEGOS: !3enraya (!unirse, !mover), !ahorcado (!letra), !numero (!adivinanum), !trivia (!respuesta), !ruleta, !bpm (!adivinarbpm).")
+        enviar(s, "🎮 JUEGOS: !3enraya (!unirse, !mover), !ahorcado (!letra), !numero (!adivinanum), !trivia (!respuesta), !ruleta, !bpm (!adivinarbpm).")
     elif cmd == "!redes":
-        enviar(s, " Sígueme: Kick: https://kick.com/jonasrdboficial | YouTube: https://www.youtube.com/@JonasRDB | FB: https://www.facebook.com/profile.php?id=61582389543371")
+        enviar(s, "🔗 Sígueme: Kick: https://kick.com/jonasrdboficial | YouTube: https://www.youtube.com/@JonasRDB | FB: https://www.facebook.com/profile.php?id=61582389543371")
     elif cmd == "!sobre":
-        enviar(s, "🎧 JONAS RDB // HARD DANCE. DJ alicantino criado entre vinilos desde 1994. +30 años haciendo vibrar pistas con Hard Dance, Remember y pura energía rave. ")
+        enviar(s, "🎧 JONAS RDB // HARD DANCE. DJ alicantino criado entre vinilos desde 1994. +30 años haciendo vibrar pistas con Hard Dance, Remember y pura energía rave. 🚀")
     elif cmd == "!normas":
         enviar(s, "⚠️ NORMAS: 1️⃣ Lenguaje respetuoso. 2️⃣ Emotes sin ofender. 3️⃣ Críticas constructivas SÍ, ataques NO. 🚫 TOLERANCIA CERO: amenazas, acoso, doxxing, odio o spam. ⛔ Incumplir = BAN PERMANENTE. ¡Disfruta! 🎧")
     elif cmd in ["!prime", "!suscri"]:
         enviar(s, "👑 ¡Suscríbete GRATIS con Twitch Prime! Apoya el canal sin coste extra, desbloquea emotes y ayuda a que la fiesta no pare. ¡Gracias! ❤️")
     elif cmd in ["!festero", "!fiesta", "!animado"]:
         p = random.randint(0, 100)
-        if p >= 85: frase = f" ¡@{user} está al {p}% de festero! ¡A ROMPERLA! "
+        if p >= 85: frase = f"🔥 ¡@{user} está al {p}% de festero! ¡A ROMPERLA! 🎉"
         elif p >= 65: frase = f"🎉 @{user} está al {p}% de festero. ¡Sube el volumen! 🎧"
         elif p >= 45: frase = f"🎶 @{user} está al {p}% de festero. Vas bien, ¡sigue bailando! 💃"
         elif p >= 25: frase = f"😐 @{user} está al {p}% de festero. ¡Despierta que empieza la sesión! ⚡"
@@ -325,15 +344,15 @@ def comando(s, user, cmd, arg):
             enviar(s, "Elige: piedra, papel o tijera. Ejemplo: !ppt piedra")
             return
         if eleccion_user == eleccion_bot:
-            resultado = f" Empate. Ambos {eleccion_user}."
+            resultado = f"🤝 Empate. Ambos {eleccion_user}."
         elif (eleccion_user == "piedra" and eleccion_bot == "tijera") or (eleccion_user == "papel" and eleccion_bot == "piedra") or (eleccion_user == "tijera" and eleccion_bot == "papel"):
             resultado = f"🎉 ¡@{user} GANA! {eleccion_user} vence a {eleccion_bot}."
         else:
             resultado = f"😈 ¡Gana el bot! {eleccion_bot} vence a {eleccion_user}."
-        enviar(s, f"🪨️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
+        enviar(s, f"🪨📄✂️ @{user}: {eleccion_user} vs Bot: {eleccion_bot}. {resultado}")
     elif cmd == "!dado":
         resultado = random.randint(1, 6)
-        emojis = {1: "⚀", 2: "", 3: "⚂", 4: "⚃", 5: "", 6: "⚅"}
+        emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
         enviar(s, f"🎲 @{user} tiró el dado: {emojis[resultado]} {resultado}")
     elif cmd == "!moneda":
         resultado = random.choice(["CARA 👑", "CRUZ ✝️"])
@@ -342,7 +361,7 @@ def comando(s, user, cmd, arg):
         if not arg.strip():
             enviar(s, "Haz una pregunta. Ejemplo: !bola ¿Iré a un rave?")
             return
-        enviar(s, f" @{user}: {random.choice(respuestas_bola)}")
+        enviar(s, f"🔮 @{user}: {random.choice(respuestas_bola)}")
     elif cmd in ["!reto", "!verdad"]:
         tipo = random.choice(["RETO 🎯", "VERDAD 💬"])
         contenido = random.choice(retos) if tipo.startswith("RETO") else random.choice(verdades)
@@ -368,10 +387,10 @@ def comando(s, user, cmd, arg):
         try:
             n = int(arg)
             if n == bpm_n:
-                enviar(s, f" ¡EXACTO @{user}! Era {bpm_n} BPM.")
+                enviar(s, f"🎉 ¡EXACTO @{user}! Era {bpm_n} BPM.")
                 bpm_n = None
             elif abs(n - bpm_n) <= 5:
-                enviar(s, f" ¡Muy cerca @{user}! A {abs(n-bpm_n)} BPM.")
+                enviar(s, f"🔥 ¡Muy cerca @{user}! A {abs(n-bpm_n)} BPM.")
             else:
                 enviar(s, f"❌ Frío @{user}.")
         except:
@@ -382,11 +401,11 @@ def main():
     print("🚀 Bot de Twitch para la nube (Railway)")
     print(f"📺 Canal: #{CANAL}")
     print(f"🤖 Bot: {BOT}")
-    print(f" Gemini: {'✅ Configurado' if GEMINI_KEY else '❌ No configurado (IA desactivada)'}")
+    print(f"🧠 Gemini: {'✅ Configurado' if GEMINI_KEY else '❌ No configurado (IA desactivada)'}")
     
     s = conectar()
     print(f"✅ Bot listo en #{CANAL}!")
-    print(" Escribe en Twitch: !comandos")
+    print("🎮 Escribe en Twitch: !comandos")
     ultimo_mensaje = time.time()
     
     while True:
@@ -406,7 +425,6 @@ def main():
                     msg = parts[3][1:].strip()
                     print(f"[{user}]: {msg}")
                     
-                    # IA con Gemini si lo mencionan
                     if f"@{BOT.lower()}" in msg.lower():
                         preg = msg.lower().replace(f"@{BOT.lower()}", "").strip()
                         if len(preg) > 2:
@@ -415,7 +433,6 @@ def main():
                             if resp:
                                 enviar(s, resp[:400])
                     
-                    # Comandos
                     if msg.startswith("!"):
                         pc = msg.split(" ", 1)
                         comando(s, user, pc[0].lower(), pc[1] if len(pc) > 1 else "")
@@ -430,24 +447,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-"""
-
-ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bot.py')
-with open(ruta, 'w', encoding='utf-8') as f:
-    f.write(codigo)
-
-# Crear requirements.txt
-req_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'requirements.txt')
-with open(req_path, 'w') as f:
-    f.write("requests\n")
-
-print(f"✅ Archivo creado: {ruta}")
-print(f"✅ requirements.txt creado")
-print("\n📋 PASOS PARA RAILWAY:")
-print("1. Sube bot.py y requirements.txt a GitHub")
-print("2. Conecta el repo en Railway")
-print("3. Añade las variables de entorno:")
-print("   - TWITCH_TOKEN: oauth:lrrg261q2uk90yfsia57pbhms9m8dk")
-print("   - TWITCH_CANAL: jonasrdb")
-print("   - TWITCH_BOT: sesionesoldschool")
-print("   - GEMINI_KEY: (tu API key de Google)")
