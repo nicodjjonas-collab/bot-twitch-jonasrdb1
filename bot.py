@@ -1,8 +1,4 @@
-import os
-import random
-import time
-import asyncio
-import json
+import os, random, time, asyncio, json
 from urllib.request import Request, urlopen
 import twitchio
 from twitchio.ext import commands
@@ -267,4 +263,4 @@ class Bot(commands.Bot):
             except: await message.channel.send("Número válido.")
 
 if __name__ == '__main__':
-    Bot().run()s
+    Bot().run()
