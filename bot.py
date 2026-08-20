@@ -37,30 +37,19 @@ emotes_canal = ["Kappa", "PogChamp", "LUL", "OMEGALUL", "KEKW", "monkaS", "Sadge
 emotes_personalizados = []
 
 temas_ia = [
-    "¿Qué os parece la sesión de hoy?",
-    "¿De dónde sois todos?",
-    "¿Cuál es vuestro género favorito? ¿Techno, house, makina?",
-    "¿Alguien ha ido a algún rave últimamente?",
-    "¿Vinilo o digital?",
-    "¿Cuál fue el mejor DJ que habéis visto en vivo?",
-    "¿Recordáis la época dorada del Remember?",
-    "¿Cuál es vuestro BPM favorito para bailar?",
-    "¿Qué os parece si hacemos una trivia? Escribid !trivia",
-    "¿Quién se anima a un !3enraya?",
-    "¿Techno duro o melódico?",
-    "¿Alguien tiene algún set recomendado?"
+    "¿Qué os parece la sesión de hoy?", "¿De dónde sois todos?", "¿Cuál es vuestro género favorito? ¿Techno, house, makina?",
+    "¿Alguien ha ido a algún rave últimamente?", "¿Vinilo o digital?", "¿Cuál fue el mejor DJ que habéis visto en vivo?",
+    "¿Recordáis la época dorada del Remember?", "¿Cuál es vuestro BPM favorito para bailar?",
+    "¿Qué os parece si hacemos una trivia? Escribid !trivia", "¿Quién se anima a un !3enraya?",
+    "¿Techno duro o melódico?", "¿Alguien tiene algún set recomendado?"
 ]
 
 palabras_ahorcado = ["techno", "house", "trance", "vinilo", "mezcla", "bpm", "rave", "fiesta", "bass", "drop", "set", "dj", "platina", "sintetizador", "acido", "detroit", "ibiza", "berlin", "minimal", "progressive", "hardcore", "remember", "makina", "eurodance", "disco"]
 preguntas_vf = [
-    ("Los Beatles son de Liverpool.", "verdadero"),
-    ("El piano tiene 88 teclas.", "verdadero"),
-    ("Michael Jackson es el Rey del Rock.", "falso"),
-    ("El reguetón es de Puerto Rico.", "verdadero"),
-    ("Beethoven quedó sordo.", "verdadero"),
-    ("Woodstock fue en 1969.", "verdadero"),
-    ("Shakira es de México.", "falso"),
-    ("El Techno nació en Detroit.", "verdadero"),
+    ("Los Beatles son de Liverpool.", "verdadero"), ("El piano tiene 88 teclas.", "verdadero"),
+    ("Michael Jackson es el Rey del Rock.", "falso"), ("El reguetón es de Puerto Rico.", "verdadero"),
+    ("Beethoven quedó sordo.", "verdadero"), ("Woodstock fue en 1969.", "verdadero"),
+    ("Shakira es de México.", "falso"), ("El Techno nació en Detroit.", "verdadero"),
     ("Daft Punk es de Francia.", "verdadero")
 ]
 retos = ["Pon la canción que más te haga bailar", "Di tu género favorito", "Cuéntanos tu mejor experiencia en un rave", "Nombra 3 DJs que te encanten"]
