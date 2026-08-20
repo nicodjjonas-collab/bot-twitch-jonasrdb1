@@ -62,9 +62,9 @@ class Bot(commands.Bot):
     # ----------------------------------------
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        msg = ("🤖 Comandos: !ia (Habla con la IA) | "
-               "🎮 Juegos Largos: !ahorcado, !3enraya, !adivinar, !vf (Verdadero/Falso), !trivia | "
-               "🎲 Juegos Rápidos: !ruleta, !ppt, !moneda, !bola8, !amor @usuario")
+        msg = ("🤖 IA: !ia <pregunta> | "
+               "🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf (Verdadero/Falso), !trivia | "
+               "🎲 Diversión: !festero, !amor @usuario, !ruleta, !ppt, !moneda, !bola8 <pregunta>")
         await ctx.send(msg)
 
     # ----------------------------------------
@@ -113,6 +113,25 @@ class Bot(commands.Bot):
             await ctx.send(f"@{ctx.author.name} Error con la IA.")
 
     # ----------------------------------------
+    # MEDIDOR DE FIESTA
+    # ----------------------------------------
+    @commands.command(name='festero')
+    async def festero(self, ctx: commands.Context):
+        porcentaje = random.randint(0, 100)
+        
+        # Mensajes personalizados según el porcentaje
+        if porcentaje < 20:
+            reaccion = "Necesitas un buen temazo hard dance para despertar. 😴"
+        elif porcentaje < 50:
+            reaccion = "Estás calentando motores poco a poco. 🎵"
+        elif porcentaje < 80:
+            reaccion = "¡Ya estás a tope para darlo todo en la pista! 🕺💃"
+        else:
+            reaccion = "¡DIOS MÍO! ¡Eres el alma de la fiesta! 🔥🎶"
+            
+        await ctx.send(f"🎉 @{ctx.author.name} tiene un {porcentaje}% de ganas de fiesta hoy. {reaccion}")
+
+    # ----------------------------------------
     # JUEGO: VERDADERO O FALSO
     # ----------------------------------------
     @commands.command(name='vf')
@@ -157,7 +176,6 @@ class Bot(commands.Bot):
         self.ahorcado_intentos = 6
         self.ahorcado_activo = True
         
-        # Muestra formato: _ _ _ _ _
         oculto = " ".join(["_" for _ in self.ahorcado_palabra])
         await ctx.send(f"🎮 ¡Ahorcado! Palabra: {oculto} | Intentos: {self.ahorcado_intentos}. Usa !letra A")
 
@@ -174,7 +192,6 @@ class Bot(commands.Bot):
         self.ahorcado_adivinadas.add(letra)
         if letra not in self.ahorcado_palabra: self.ahorcado_intentos -= 1
             
-        # Reconstruye la palabra mostrando las acertadas y ocultando con "_" las restantes
         oculto = " ".join([l if l in self.ahorcado_adivinadas else "_" for l in self.ahorcado_palabra])
         
         if "_" not in oculto:
@@ -217,4 +234,102 @@ class Bot(commands.Bot):
     # ----------------------------------------
     # JUEGOS RÁPIDOS Y SOCIALES
     # ----------------------------------------
-    @commands.command(
+    @commands.command(name='amor')
+    async def amor(self, ctx: commands.Context):
+        msg = ctx.message.content.split()
+        if len(msg) < 2: return await ctx.send("Menciona a alguien: !amor @usuario")
+        porcentaje = random.randint(0, 100)
+        await ctx.send(f"💘 El nivel de amor entre @{ctx.author.name} y {msg[1]} es del {porcentaje}%!")
+
+    @commands.command(name='ruleta')
+    async def ruleta(self, ctx: commands.Context):
+        if random.randint(1, 6) == 1: await ctx.send(f"💥 ¡PUM! @{ctx.author.name} ha perdido en la ruleta rusa. 💀")
+        else: await ctx.send(f"💨 *Click*... @{ctx.author.name} se salva esta vez. 😅")
+
+    @commands.command(name='moneda')
+    async def moneda(self, ctx: commands.Context):
+        await ctx.send(f"🪙 @{ctx.author.name} lanzó una moneda... ¡Salió {random.choice(['Cara 🪙', 'Cruz ❌'])}!")
+
+    @commands.command(name='bola8')
+    async def bola8(self, ctx: commands.Context):
+        if len(ctx.message.content.split()) < 2: return await ctx.send("Hazme una pregunta: !bola8 <pregunta>")
+        respuestas = ["Sí.", "Es cierto.", "Sin duda.", "Ni de broma.", "No cuentes con ello.", "Mi respuesta es no."]
+        await ctx.send(f"🎱 @{ctx.author.name}: {random.choice(respuestas)}")
+
+    @commands.command(name='ppt')
+    async def ppt(self, ctx: commands.Context):
+        opciones = ["piedra", "papel", "tijera"]
+        msg = ctx.message.content.lower().split()
+        if len(msg) < 2 or msg[1] not in opciones: return await ctx.send("Usa: !ppt <piedra|papel|tijera>")
+        bot_elige = random.choice(opciones)
+        j = msg[1]
+        res = "¡Empate! 🤝" if j == bot_elige else "¡Ganaste! 🎉" if (j=="piedra" and bot_elige=="tijera") or (j=="papel" and bot_elige=="piedra") or (j=="tijera" and bot_elige=="papel") else "¡Gano yo! 🤖"
+        await ctx.send(f"Elegiste {j}, yo elegí {bot_elige}. {res}")
+
+    # ----------------------------------------
+    # JUEGO: ADIVINAR EL NÚMERO
+    # ----------------------------------------
+    @commands.command(name='adivinar')
+    async def start_adivinar(self, ctx: commands.Context):
+        if self.num_activo: return await ctx.send("¡Ya hay un juego! Usa !n <numero>")
+        self.num_secreto = random.randint(1, 100)
+        self.num_activo = True
+        await ctx.send("🔢 He pensado un número del 1 al 100. ¡Adivina con !n <numero>")
+
+    @commands.command(name='n')
+    async def play_adivinar(self, ctx: commands.Context):
+        if not self.num_activo: return
+        try: intento = int(ctx.message.content.split()[1])
+        except: return
+        if intento == self.num_secreto:
+            self.num_activo = False
+            await ctx.send(f"🎉 ¡CORRECTO @{ctx.author.name}! Era {self.num_secreto}.")
+        elif intento < self.num_secreto: await ctx.send(f"🔼 Más alto, @{ctx.author.name}.")
+        else: await ctx.send(f"🔽 Más bajo, @{ctx.author.name}.")
+
+    # ----------------------------------------
+    # JUEGO: 3 EN RAYA
+    # ----------------------------------------
+    @commands.command(name='3enraya')
+    async def ttt_start(self, ctx: commands.Context):
+        self.ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        self.ttt_activo = True
+        t = self.ttt_tablero
+        await ctx.send(f"🎮 3 en raya. Eres las X. Usa !casilla <1-9>. Tablero: [{t[0]}][{t[1]}][{t[2]}] - [{t[3]}][{t[4]}][{t[5]}] - [{t[6]}][{t[7]}][{t[8]}]")
+
+    @commands.command(name='casilla')
+    async def ttt_play(self, ctx: commands.Context):
+        if not self.ttt_activo: return
+        try:
+            c = int(ctx.message.content.split()[1]) - 1
+            if c < 0 or c > 8 or self.ttt_tablero[c] in ['X', 'O']: return await ctx.send("Casilla inválida.")
+        except: return
+
+        self.ttt_tablero[c] = 'X'
+        if self.check_ganador('X'):
+            self.ttt_activo = False
+            return await ctx.send(f"🎉 ¡Gana @{ctx.author.name}!")
+
+        libres = [i for i, x in enumerate(self.ttt_tablero) if x not in ['X', 'O']]
+        if not libres:
+            self.ttt_activo = False
+            return await ctx.send("🤝 ¡Empate!")
+            
+        self.ttt_tablero[random.choice(libres)] = 'O'
+        if self.check_ganador('O'):
+            self.ttt_activo = False
+            t = self.ttt_tablero
+            return await ctx.send(f"🤖 ¡Gana el Bot! Tablero: [{t[0]}][{t[1]}][{t[2]}] - [{t[3]}][{t[4]}][{t[5]}] - [{t[6]}][{t[7]}][{t[8]}]")
+
+        t = self.ttt_tablero
+        await ctx.send(f"🤖 Bot juega... Tablero: [{t[0]}][{t[1]}][{t[2]}] - [{t[3]}][{t[4]}][{t[5]}] - [{t[6]}][{t[7]}][{t[8]}]")
+
+    def check_ganador(self, f):
+        t = self.ttt_tablero
+        for a, b, c in [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]:
+            if t[a] == t[b] == t[c] == f: return True
+        return False
+
+if __name__ == '__main__':
+    bot = Bot()
+    bot.run()s
