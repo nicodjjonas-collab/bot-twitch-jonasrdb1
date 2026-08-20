@@ -1,5 +1,4 @@
 import os
-import random
 import twitchio
 from twitchio.ext import commands
 
@@ -11,34 +10,22 @@ class Bot(commands.Bot):
         super().__init__(token=TOKEN, prefix='!', initial_channels=[CANAL])
     
     async def event_ready(self):
-        print(f'Bot listo en #{CANAL}')
+        print('Bot conectado a #' + CANAL)
+        print('Esperando comandos...')
     
     @commands.command()
     async def comandos(self, ctx):
-        await ctx.send('INFO: !redes, !sobre, !festero, !dado, !moneda, !vf')
+        await ctx.send('Bot funcionando! Comandos: !hola, !dado')
     
     @commands.command()
-    async def redes(self, ctx):
-        await ctx.send('Sigueme: Kick: https://kick.com/jonasrdboficial | YouTube: https://www.youtube.com/@JonasRDB')
-    
-    @commands.command()
-    async def sobre(self, ctx):
-        await ctx.send('JONAS RDB // HARD DANCE. DJ alicantino desde 1994. +30 anos de Hard Dance y Remember.')
-    
-    @commands.command()
-    async def festero(self, ctx):
-        p = random.randint(0, 100)
-        await ctx.send(f'@{ctx.author.name} esta al {p}% de festero!')
+    async def hola(self, ctx):
+        await ctx.send('Hola @' + ctx.author.name + '!')
     
     @commands.command()
     async def dado(self, ctx):
+        import random
         n = random.randint(1, 6)
-        await ctx.send(f'@{ctx.author.name} tiro el dado: {n}')
-    
-    @commands.command()
-    async def moneda(self, ctx):
-        r = random.choice(['CARA', 'CRUZ'])
-        await ctx.send(f'@{ctx.author.name} lanzo la moneda: {r}')
+        await ctx.send('@' + ctx.author.name + ' tiro: ' + str(n))
 
 bot = Bot()
 
