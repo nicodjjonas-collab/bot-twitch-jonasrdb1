@@ -11,7 +11,6 @@ TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'jonasrdb').lower() 
 CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
 
-# Cogemos la API key de cualquiera de las variables posibles para evitar fallos
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
 print(f"[INIT] Arrancando bot asíncrono para el canal: {CANAL}")
@@ -19,14 +18,13 @@ print(f"[INIT] Arrancando bot asíncrono para el canal: {CANAL}")
 ai_client = None
 if GEMINI_KEY:
     try:
-        # Aseguramos que la librería detecte la key configurándola también en el entorno
         os.environ['GEMINI_API_KEY'] = GEMINI_KEY
         ai_client = genai.Client()
         print("[INIT] Gemini conectado correctamente.")
     except Exception as e:
         print(f"[INIT] Error crítico al iniciar Gemini: {e}")
 else:
-    print("[INIT] AVISO: No se encontró la clave de Gemini (GEMINI_API_KEY).")
+    print("[INIT] AVISO: No se encontró la clave de Gemini.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -57,6 +55,12 @@ class Bot(commands.Bot):
         print(f'=== ¡BOT CONECTADO Y ESCUCHANDO EN EL CANAL: {CANAL} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
 
+    # Silencia los errores de comandos no encontrados en la consola
+    async def event_command_error(self, ctx: commands.Context, error: Exception):
+        if isinstance(error, commands.CommandNotFound):
+            return  # Ignora si escriben un comando que no existe sin ensuciar el log
+        print(f"[ERROR COMANDO] {error}")
+
     async def event_message(self, message):
         print(f"[CHAT] {message.author.name if message.author else 'Sistema'}: {message.content}")
         if message.echo:
@@ -69,7 +73,7 @@ class Bot(commands.Bot):
 
         await self.handle_commands(message)
 
-        # Intervención espontánea de la IA
+        # Intervención espontánea de la IA (20% de probabilidad en mensajes normales)
         if not message.content.startswith('!') and random.random() < 0.20 and ai_client:
             try:
                 canal_obj = self.get_channel(CANAL)
@@ -101,10 +105,10 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # Comandos
+    # Comandos principales
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send("🤖 IA: !ia | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 📌 Info: !normas, !redes, !prime | 🎲 Diversión: !festero, !amor, !ruleta, !ppt, !moneda, !bola8")
+        await ctx.send("🤖 IA: !ia o !hola | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 📌 Info: !normas, !redes, !prime | 🎲 Diversión: !festero, !amor, !ruleta, !ppt, !moneda, !bola8")
 
     @commands.command(name='normas')
     async def cmd_normas(self, ctx: commands.Context):
@@ -118,13 +122,15 @@ class Bot(commands.Bot):
     async def cmd_prime(self, ctx: commands.Context):
         await ctx.send("🔔 ¡Apoya con Amazon Prime! Consigue insignias, emotes exclusivos y apoya las sesiones de JONAS RDB.")
 
-    @commands.command(name='ia')
+    @commands.command(name='ia', aliases=['hola', 'chat'])
     async def ia_command(self, ctx: commands.Context):
         if not ai_client: 
             return await ctx.send(f"@{ctx.author.name} IA no configurada (falta la API Key).")
-        prompt = ctx.message.content.replace('!ia', '', 1).strip()
-        if not prompt: 
-            return await ctx.send(f"@{ctx.author.name} Escribe algo: !ia <pregunta>")
+        
+        # Limpia el comando usado (!ia, !hola, etc.) para dejar solo el texto que escribió el usuario
+        content_parts = ctx.message.content.split(' ', 1)
+        prompt = content_parts[1] if len(content_parts) > 1 else "¡Hola máquina!"
+        
         try:
             response = await ai_client.aio.models.generate_content(
                 model='gemini-2.5-flash',
@@ -133,7 +139,6 @@ class Bot(commands.Bot):
             texto_respuesta = response.text if response and response.text else "¡Temarral absoluto! 🔥"
             await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:400]}")
         except Exception as e:
-            # Imprime el error real en tu consola para saber exactamente qué pasa si vuelve a fallar
             print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
             await ctx.send(f"@{ctx.author.name} ¡Uy, fallo en el sistema de audio! 😅")
 
