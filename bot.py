@@ -1,9 +1,9 @@
 import os
 import random
 import time
-import datetime
+import asyncio
 import twitchio
-from twitchio.ext import commands, routines
+from twitchio.ext import commands
 from google import genai
 
 # ----------------------------------------
@@ -51,11 +51,36 @@ class Bot(commands.Bot):
     async def event_ready(self):
         print(f'¡Conectado a Twitch exitosamente!')
         print(f'Escuchando el canal: {CANAL}')
-        # Modificación aplicada: Inicio seguro de la rutina sin usar is_running()
-        try:
-            self.animar_chat_autonomo.start()
-        except Exception as e:
-            print(f"La rutina ya estaba en marcha o hubo un detalle al iniciarla: {e}")
+        # Iniciamos el bucle autónomo en segundo plano de manera nativa y segura
+        self.loop.create_task(self.bucle_autonomo_chat())
+
+    async def bucle_autonomo_chat(self):
+        """Rutina autónoma segura para romper el hielo en el chat"""
+        await asyncio.sleep(10)
+        while True:
+            try:
+                await asyncio.sleep(75)
+                if time.time() - self.ultimo_mensaje > 120:
+                    canal_obj = self.get_channel(CANAL)
+                    if canal_obj:
+                        if ai_client:
+                            prompt_autonomo = (
+                                f"Eres un espectador veterano y súper activo en el canal de Twitch del DJ Jonas RDB (música Remember, Trance, Eurodance y Hard Dance). "
+                                f"El chat lleva un par de minutos tranquilo. Escribe un mensaje corto y espontáneo (máximo 130 caracteres) preguntando qué temazo suena, animando o comentando algo de la sesión como uno más. "
+                                f"Usa obligatoriamente este emote: {random.choice(self.emotes_twitch)}"
+                            )
+                            response = ai_client.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=prompt_autonomo,
+                            )
+                            mensaje_animacion = response.text.strip().replace('\n', ' ')
+                        else:
+                            mensaje_animacion = f"¡Vaya pepinazo de sesión familia! {random.choice(self.emotes_twitch)}"
+                        
+                        await canal_obj.send(mensaje_animacion)
+                        self.ultimo_mensaje = time.time()
+            except Exception as e:
+                print(f"Error en bucle autónomo: {e}")
 
     async def event_message(self, message):
         if message.echo:
@@ -87,35 +112,6 @@ class Bot(commands.Bot):
                     await canal_obj.send(respuesta[:150])
             except Exception as e:
                 print(f"Error en intervención espontánea: {e}")
-
-    # ----------------------------------------
-    # RUTINA AUTÓNOMA (ROMPEHIELOS)
-    # ----------------------------------------
-    @routines.routine(delta=datetime.timedelta(seconds=75))
-    async def animar_chat_autonomo(self):
-        if time.time() - self.ultimo_mensaje > 120:
-            canal_obj = self.get_channel(CANAL)
-            if not canal_obj:
-                return
-            try:
-                if ai_client:
-                    prompt_autonomo = (
-                        f"Eres un espectador veterano y súper activo en el canal de Twitch del DJ Jonas RDB (música Remember, Trance, Eurodance y Hard Dance). "
-                        f"El chat lleva un par de minutos tranquilo. Escribe un mensaje corto y espontáneo (máximo 130 caracteres) preguntando qué temazo suena, animando o comentando algo de la sesión como uno más. "
-                        f"Usa obligatoriamente este emote: {random.choice(self.emotes_twitch)}"
-                    )
-                    response = ai_client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=prompt_autonomo,
-                    )
-                    mensaje_animacion = response.text.strip().replace('\n', ' ')
-                else:
-                    mensaje_animacion = f"¡Vaya pepinazo de sesión familia! {random.choice(self.emotes_twitch)}"
-                
-                await canal_obj.send(mensaje_animacion)
-                self.ultimo_mensaje = time.time()
-            except Exception as e:
-                print(f"Error en bucle autónomo: {e}")
 
     # ----------------------------------------
     # COMANDOS DE AYUDA E INFORMACIÓN
