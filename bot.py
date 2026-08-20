@@ -51,8 +51,8 @@ class Bot(commands.Bot):
     async def event_ready(self):
         print(f'¡Conectado a Twitch exitosamente!')
         print(f'Escuchando el canal: {CANAL}')
-        # Iniciamos el bucle autónomo en segundo plano de manera nativa y segura
-        self.loop.create_task(self.bucle_autonomo_chat())
+        # Corrección aplicada: Uso directo de asyncio.create_task() compatible con TwitchIO
+        asyncio.create_task(self.bucle_autonomo_chat())
 
     async def bucle_autonomo_chat(self):
         """Rutina autónoma segura para romper el hielo en el chat"""
