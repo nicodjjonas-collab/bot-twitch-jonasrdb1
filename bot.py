@@ -106,17 +106,16 @@ class Bot(commands.Bot):
                 canal_obj = self.get_channel(CANAL)
                 if canal_obj:
                     contexto_completo = " | ".join(self.ultimos_mensajes_chat[-8:])
-                    prompt = f"Conversación actual en el chat:\n[{contexto_completo}]\n\nOpina, ríete o responde de forma natural a lo que se está hablando, como un usuario más del chat."
+                    prompt = f"Conversación actual en el chat:\n[{contexto_completo}]\n\nOpina, ríete o suelta un comentario corto a lo que se está hablando, como un usuario más del chat."
                     
-                    response = await ai_client.aio.models.generate_content(
-                        model='gemini-1.5-flash',
+                    response = ai_client.models.generate_content(
+                        model='gemini-2.5-flash',
                         contents=prompt,
                         config={
                             'system_instruction': (
-                                "Eres una persona real, un colega más y viewer habitual en el canal de Twitch de Jonas RDB. "
-                                "Hablas de tú, usas jerga coloquial de España (tío, mola, vaya ida de olla, brutal, etc.). "
-                                "Comentas sobre cualquier cosa que la gente esté hablando en el chat, sin filtros de IA, sin presentarte "
-                                "y sin sonar como un asistente. Sé breve (máximo 120 caracteres) y natural."
+                                "Eres un colega más en el chat de Twitch de Jonas RDB. Eres un espectador humano, "
+                                "hablas en español de España con total naturalidad (tío, mola, brutal, qué pasada, etc.). "
+                                "NUNCA digas que eres una IA o un asistente. No saludes formalmente. Sé súper breve y directo."
                             ),
                         }
                     )
@@ -139,8 +138,8 @@ class Bot(commands.Bot):
                         if ai_client:
                             contexto_previo = " | ".join(self.ultimos_mensajes_chat[-5:]) if self.ultimos_mensajes_chat else "Silencio en el chat."
                             prompt = f"El chat lleva un rato tranquilo. Últimas cosas dichas: [{contexto_previo}]. Suelta un comentario guapo sobre la música Remember, la sesión o para romper el hielo como un colega."
-                            response = await ai_client.aio.models.generate_content(
-                                model='gemini-1.5-flash',
+                            response = ai_client.models.generate_content(
+                                model='gemini-2.5-flash',
                                 contents=prompt,
                                 config={
                                     'system_instruction': "Eres un colega más en el chat de Twitch. Escribe corto, súper natural, como si estuvieras viendo el directo desde el sofá.",
@@ -213,37 +212,39 @@ class Bot(commands.Bot):
         
         if not ai_client: 
             print("[DEBUG ERROR] ai_client es None. La API key de Gemini no está cargada.")
-            return await ctx.send(f"@{ctx.author.name} ¡Ey! Configura la API key para que pueda hablar.")
+            return await ctx.send(f"@{ctx.author.name} Configura la clave de la API en el entorno.")
         
         content_parts = ctx.message.content.split(' ', 1)
         prompt_usuario = content_parts[1] if len(content_parts) > 1 else "¡Hola tío!"
         
         try:
             contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
-            prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{ctx.author.name} te dice directamente: '{prompt_usuario}'. Resóndele metiéndote en la conversación."
+            prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{ctx.author.name} te dice directamente: '{prompt_usuario}'. Resóndele metiéndote en la conversación de forma natural."
 
             print(f"[DEBUG] Enviando prompt a Gemini...")
-            response = await ai_client.aio.models.generate_content(
-                model='gemini-1.5-flash',
+            response = ai_client.models.generate_content(
+                model='gemini-2.5-flash',
                 contents=prompt_final,
                 config={
                     'system_instruction': (
                         "Eres una persona real, un colega más y viewer habitual en el canal de Twitch de Jonas RDB. "
-                        "Hablas de tú, con total naturalidad, jerga coloquial de España, opinando de lo que te digan y de lo que se hable en el chat. "
-                        "Cero formalidades, cero '¿En qué puedo ayudarte?'. Habla como un amigo más tomando algo mientras escucha la sesión. "
-                        "Máximo 300 caracteres."
+                        "Hablas de tú, con total naturalidad, jerga coloquial de España (tío, mola, brutal, ostras, crack, etc.), "
+                        "opinando de lo que te digan y de lo que se hable en el chat. "
+                        "PROHIBIDO absoluto sonar como un asistente, NUNCA digas cosas como '¿En qué puedo ayudarte?', 'Soy un bot', "
+                        "ni actúes con formalidad. Eres un amigo más tomando algo mientras escucha la sesión de música Remember. "
+                        "Responde de forma directa, corta y natural (máximo 250 caracteres)."
                     ),
                 }
             )
             
             texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Totalmente de acuerdo. 🔥"
             print(f"[DEBUG] Respuesta recibida de Gemini: {texto_respuesta}")
-            await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:400]}")
+            await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:350]}")
             
         except Exception as e:
             print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
             traceback.print_exc()
-            await ctx.send(f"@{ctx.author.name} ¡Qué va tío, me he pillado con el chat un segundo! ¿Qué decías? 🎧")
+            await ctx.send(f"@{ctx.author.name} ¡Vaya temazo está sonando, me he quedado empanado escuchándolo! 🎧🔥")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
