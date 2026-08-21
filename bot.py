@@ -244,7 +244,8 @@ class Bot(commands.Bot):
         except Exception as e:
             print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
             traceback.print_exc()
-            await ctx.send(f"@{ctx.author.name} ¡Vaya temazo está sonando, me he quedado empanado escuchándolo! 🎧🔥")
+            # Mostramos el error exacto en el chat para diagnosticar qué pasa en la API
+            await ctx.send(f"@{ctx.author.name} ERROR GEMINI: {type(e).__name__} - {str(e)[:150]}")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
