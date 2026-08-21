@@ -38,11 +38,9 @@ class Bot(commands.Bot):
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.ultimos_mensajes_chat = []  
         
-        # Archivo para guardar comandos personalizados creados desde el chat
         self.archivo_comandos = "comandos_custom.json"
         self.comandos_custom = self.cargar_comandos_custom()
 
-        # Estados de los minijuegos
         self.ahorcado_activo = False
         self.ahorcado_palabra = ""
         self.ahorcado_adivinadas = set()
@@ -57,7 +55,6 @@ class Bot(commands.Bot):
         self.trivia_respuesta = ""
 
     def cargar_comandos_custom(self):
-        """Carga los comandos personalizados desde un archivo JSON local."""
         if os.path.exists(self.archivo_comandos):
             try:
                 with open(self.archivo_comandos, 'r', encoding='utf-8') as f:
@@ -67,7 +64,6 @@ class Bot(commands.Bot):
         return {}
 
     def guardar_comandos_custom(self):
-        """Guarda los comandos personalizados en el archivo JSON."""
         try:
             with open(self.archivo_comandos, 'w', encoding='utf-8') as f:
                 json.dump(self.comandos_custom, f, ensure_ascii=False, indent=4)
@@ -90,12 +86,10 @@ class Bot(commands.Bot):
 
         self.ultimo_mensaje = time.time()
         
-        # Guardar historial reciente para enterarse de la charla
         self.ultimos_mensajes_chat.append(f"{message.author.name}: {message.content}")
         if len(self.ultimos_mensajes_chat) > 15:
             self.ultimos_mensajes_chat.pop(0)
 
-        # 1. Comprobar si el mensaje ejecuta un comando personalizado creado desde el chat
         content = message.content.strip()
         if content.startswith('!'):
             partes = content[1:].split(' ', 1)
@@ -105,10 +99,8 @@ class Bot(commands.Bot):
                 await message.channel.send(self.comandos_custom[nombre_cmd])
                 return
 
-        # 2. Procesar comandos fijos del bot
         await self.handle_commands(message)
 
-        # 3. Intervención espontánea de la IA en la charla general (25% de probabilidad)
         if not message.content.startswith('!') and random.random() < 0.25 and ai_client:
             try:
                 canal_obj = self.get_channel(CANAL)
@@ -117,7 +109,7 @@ class Bot(commands.Bot):
                     prompt = f"Conversación actual en el chat:\n[{contexto_completo}]\n\nOpina, ríete o responde de forma natural a lo que se está hablando, como un usuario más del chat."
                     
                     response = await ai_client.aio.models.generate_content(
-                        model='gemini-2.5-flash',
+                        model='gemini-1.5-flash',
                         contents=prompt,
                         config={
                             'system_instruction': (
@@ -148,7 +140,7 @@ class Bot(commands.Bot):
                             contexto_previo = " | ".join(self.ultimos_mensajes_chat[-5:]) if self.ultimos_mensajes_chat else "Silencio en el chat."
                             prompt = f"El chat lleva un rato tranquilo. Últimas cosas dichas: [{contexto_previo}]. Suelta un comentario guapo sobre la música Remember, la sesión o para romper el hielo como un colega."
                             response = await ai_client.aio.models.generate_content(
-                                model='gemini-2.5-flash',
+                                model='gemini-1.5-flash',
                                 contents=prompt,
                                 config={
                                     'system_instruction': "Eres un colega más en el chat de Twitch. Escribe corto, súper natural, como si estuvieras viendo el directo desde el sofá.",
@@ -162,7 +154,6 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # --- COMANDOS ADMINISTRATIVOS PARA CREAR/BORRAR DESDE EL CHAT ---
     @commands.command(name='addcmd')
     async def cmd_add(self, ctx: commands.Context):
         if not ctx.author.is_mod and ctx.author.name.lower() != CANAL.lower():
@@ -197,15 +188,11 @@ class Bot(commands.Bot):
         else:
             await ctx.send(f"❌ El comando '!{nombre}' no existe en los personalizados.")
 
-    # Comandos principales fijos
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        # Si es moderador o el streamer, muestra también los comandos personalizados creados por chat
         es_admin_o_mod = ctx.author.is_mod or ctx.author.name.lower() == CANAL.lower()
-        
         customs = ", ".join([f"!{c}" for c in self.comandos_custom.keys()])
         custom_txt = f" | 📌 Custom (Mod): {customs}" if (es_admin_o_mod and customs) else ""
-        
         await ctx.send(f"🤖 IA: !ia o !hola | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 🎲 Extras: !festero, !amor, !ruleta{custom_txt}")
 
     @commands.command(name='normas')
@@ -222,7 +209,10 @@ class Bot(commands.Bot):
 
     @commands.command(name='ia', aliases=['hola', 'chat'])
     async def ia_command(self, ctx: commands.Context):
+        print(f"[DEBUG] Comando !ia ejecutado por: {ctx.author.name}")
+        
         if not ai_client: 
+            print("[DEBUG ERROR] ai_client es None. La API key de Gemini no está cargada.")
             return await ctx.send(f"@{ctx.author.name} ¡Ey! Configura la API key para que pueda hablar.")
         
         content_parts = ctx.message.content.split(' ', 1)
@@ -232,22 +222,27 @@ class Bot(commands.Bot):
             contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
             prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{ctx.author.name} te dice directamente: '{prompt_usuario}'. Resóndele metiéndote en la conversación."
 
+            print(f"[DEBUG] Enviando prompt a Gemini...")
             response = await ai_client.aio.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=prompt_final,
                 config={
                     'system_instruction': (
-                        "Eres una persona real, un colega más y viewer habitual en el chat de Twitch de Jonas RDB. "
+                        "Eres una persona real, un colega más y viewer habitual en el canal de Twitch de Jonas RDB. "
                         "Hablas de tú, con total naturalidad, jerga coloquial de España, opinando de lo que te digan y de lo que se hable en el chat. "
                         "Cero formalidades, cero '¿En qué puedo ayudarte?'. Habla como un amigo más tomando algo mientras escucha la sesión. "
                         "Máximo 300 caracteres."
                     ),
                 }
             )
+            
             texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Totalmente de acuerdo. 🔥"
+            print(f"[DEBUG] Respuesta recibida de Gemini: {texto_respuesta}")
             await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:400]}")
+            
         except Exception as e:
             print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
+            traceback.print_exc()
             await ctx.send(f"@{ctx.author.name} ¡Qué va tío, me he pillado con el chat un segundo! ¿Qué decías? 🎧")
 
     @commands.command(name='festero')
