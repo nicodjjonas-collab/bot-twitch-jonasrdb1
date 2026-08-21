@@ -41,6 +41,7 @@ class Bot(commands.Bot):
         self.archivo_comandos = "comandos_custom.json"
         self.comandos_custom = self.cargar_comandos_custom()
 
+        # Minijuegos clásicos
         self.ahorcado_activo = False
         self.ahorcado_palabra = ""
         self.ahorcado_adivinadas = set()
@@ -53,6 +54,27 @@ class Bot(commands.Bot):
         self.vf_respuesta = ""
         self.trivia_activo = False
         self.trivia_respuesta = ""
+
+        # Minijuegos Arcade
+        self.pelea_activa = False
+        self.peleador_1 = None
+        self.peleador_2 = None
+        self.vida_p1 = 100
+        self.vida_p2 = 100
+        self.turno_pelea = None
+
+        self.invasion_activa = False
+        self.alien_vida = 100
+        
+        # Inicializar el texto de OBS vacío
+        self.actualizar_txt_obs("🎮 Arcade Inactivo - ¡Escribe !invasion o !pelea!")
+
+    def actualizar_txt_obs(self, texto):
+        try:
+            with open("estado_juego.txt", "w", encoding="utf-8") as f:
+                f.write(texto)
+        except Exception as e:
+            print(f"Error al escribir estado_juego.txt: {e}")
 
     def cargar_comandos_custom(self):
         if os.path.exists(self.archivo_comandos):
@@ -153,46 +175,156 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
+    # ==================== COMANDOS ARCADE (CON REFLEJO EN OBS) ====================
+
+    @commands.command(name='pelea')
+    async def cmd_pelea(self, ctx: commands.Context):
+        msg = ctx.message.content.split()
+        if len(msg) < 2:
+            return await ctx.send(f"@{ctx.author.name} ¡Debes retar a alguien! Usa: !pelea @usuario")
+        
+        rival = msg[1].replace('@', '')
+        if rival.lower() == ctx.author.name.lower():
+            return await ctx.send(f"@{ctx.author.name} No puedes pegarte a ti mismo, máquina. 🥊")
+
+        self.pelea_activa = True
+        self.invasion_activa = False # Desactiva invasión si hay pelea
+        self.peleador_1 = ctx.author.name
+        self.peleador_2 = rival
+        self.vida_p1 = 100
+        self.vida_p2 = 100
+        self.turno_pelea = self.peleador_1
+
+        info_obs = f"🥊 DUELO: @{self.peleador_1} (❤️{self.vida_p1}) VS @{self.peleador_2} (❤️{self.vida_p2}) | Turno: @{self.turno_pelea}"
+        self.actualizar_txt_obs(info_obs)
+
+        await ctx.send(f"🕹️ ¡DUELO ARCADE! 🥊 @{self.peleador_1} VS @{self.peleador_2}! Turno de @{self.turno_pelea}. Usa `!atacar` o `!defender`")
+
+    @commands.command(name='atacar')
+    async def cmd_atacar(self, ctx: commands.Context):
+        if not self.pelea_activa: return
+        autor = ctx.author.name.lower()
+
+        if autor != self.peleador_1.lower() and autor != self.peleador_2.lower():
+            return
+        if autor != self.turno_pelea.lower():
+            return await ctx.send(f"⏳ @{ctx.author.name}, ¡espera tu turno!")
+
+        danio = random.randint(15, 30)
+        if autor == self.peleador_1.lower():
+            self.vida_p2 -= danio
+            if self.vida_p2 < 0: self.vida_p2 = 0
+            self.turno_pelea = self.peleador_2
+            
+            info_obs = f"🥊 DUELO: @{self.peleador_1} (❤️{self.vida_p1}) VS @{self.peleador_2} (❤️{self.vida_p2}) | Turno: @{self.turno_pelea}"
+            self.actualizar_txt_obs(info_obs)
+
+            await ctx.send(f"💥 ¡@{self.peleador_1} atesta un golpe de {danio} de daño! ➔ Vida de @{self.peleador_2}: ❤️ {self.vida_p2}/100. Turno de @{self.peleador_2}")
+            if self.vida_p2 == 0:
+                self.pelea_activa = False
+                self.actualizar_txt_obs(f"🏆 ¡Ganador de la pelea: @{self.peleador_1}! 🎉")
+                await ctx.send(f"🏆 ¡VICTORIA! @{self.peleador_1} ha destrozado a @{self.peleador_2} en la recreativa. 🎉")
+        else:
+            self.vida_p1 -= danio
+            if self.vida_p1 < 0: self.vida_p1 = 0
+            self.turno_pelea = self.peleador_1
+            
+            info_obs = f"🥊 DUELO: @{self.peleador_1} (❤️{self.vida_p1}) VS @{self.peleador_2} (❤️{self.vida_p2}) | Turno: @{self.turno_pelea}"
+            self.actualizar_txt_obs(info_obs)
+
+            await ctx.send(f"💥 ¡@{self.peleador_2} ataca causando {danio} de daño! ➔ Vida de @{self.peleador_1}: ❤️ {self.vida_p1}/100. Turno de @{self.peleador_1}")
+            if self.vida_p1 == 0:
+                self.pelea_activa = False
+                self.actualizar_txt_obs(f"🏆 ¡Ganador de la pelea: @{self.peleador_2}! 🎉")
+                await ctx.send(f"🏆 ¡VICTORIA! @{self.peleador_2} se alza con el cinturón frente a @{self.peleador_1}. 🎉")
+
+    @commands.command(name='defender')
+    async def cmd_defender(self, ctx: commands.Context):
+        if not self.pelea_activa: return
+        autor = ctx.author.name.lower()
+        if autor != self.turno_pelea.lower(): return
+
+        cura = random.randint(10, 20)
+        if autor == self.peleador_1.lower():
+            self.vida_p1 += cura
+            if self.vida_p1 > 100: self.vida_p1 = 100
+            self.turno_pelea = self.peleador_2
+            
+            info_obs = f"🥊 DUELO: @{self.peleador_1} (❤️{self.vida_p1}) VS @{self.peleador_2} (❤️{self.vida_p2}) | Turno: @{self.turno_pelea}"
+            self.actualizar_txt_obs(info_obs)
+            await ctx.send(f"🛡️ @{self.peleador_1} se defiende y recupera vida (❤️ {self.vida_p1}/100). Turno de @{self.peleador_2}")
+        else:
+            self.vida_p2 += cura
+            if self.vida_p2 > 100: self.vida_p2 = 100
+            self.turno_pelea = self.peleador_1
+            
+            info_obs = f"🥊 DUELO: @{self.peleador_1} (❤️{self.vida_p1}) VS @{self.peleador_2} (❤️{self.vida_p2}) | Turno: @{self.turno_pelea}"
+            self.actualizar_txt_obs(info_obs)
+            await ctx.send(f"🛡️ @{self.peleador_2} se defiende y recupera vida (❤️ {self.vida_p2}/100). Turno de @{self.peleador_1}")
+
+    @commands.command(name='invasion')
+    async def cmd_invasion(self, ctx: commands.Context):
+        if self.invasion_activa:
+            return await ctx.send(f"👾 ¡Ya hay una invasión activa! Dispara con `!disparar`")
+        
+        self.invasion_activa = True
+        self.pelea_activa = False # Desactiva pelea si hay invasión
+        self.alien_vida = 100
+        
+        self.actualizar_txt_obs(f"👾 JEFE ALIEN: 💚 {self.alien_vida}/100 HP | Usa !disparar")
+        await ctx.send(f"🛸 ¡ALERTA DE INVASIÓN ARCADE! 👾 Un jefe espacial se acerca a la nave Remember (Vida: 💚 100/100). ¡A disparar con `!disparar`!")
+
+    @commands.command(name='disparar')
+    async def cmd_disparar(self, ctx: commands.Context):
+        if not self.invasion_activa:
+            return await ctx.send(f"@{ctx.author.name} No hay ninguna invasión activa. Lanza una con `!invasion`")
+        
+        impacto = random.randint(8, 18)
+        self.alien_vida -= impacto
+        if self.alien_vida < 0: self.alien_vida = 0
+
+        self.actualizar_txt_obs(f"👾 JEFE ALIEN: 💚 {self.alien_vida}/100 HP | Último tiro: @{ctx.author.name}")
+
+        if self.alien_vida == 0:
+            self.invasion_activa = False
+            self.actualizar_txt_obs("🚀 ¡Invasión repelida con éxito por el chat! 🎉")
+            await ctx.send(f"🚀 ¡BLAM! @{ctx.author.name} metió el disparo definitivo. ¡Invasión repelida con éxito, equipo! 🎉🔥")
+        else:
+            await ctx.send(f"🎯 ¡Disparo de @{ctx.author.name}! (-{impacto} DMG). Vida del alien: 💚 {self.alien_vida}/100")
+
+    # ==================== COMANDOS GENERALES Y CLÁSICOS ====================
+
     @commands.command(name='addcmd')
     async def cmd_add(self, ctx: commands.Context):
         if not ctx.author.is_mod and ctx.author.name.lower() != CANAL.lower():
-            return await ctx.send(f"@{ctx.author.name} No tienes permisos para crear comandos.")
-        
+            return await ctx.send(f"@{ctx.author.name} No tienes permisos.")
         partes = ctx.message.content.split(' ', 2)
-        if len(partes) < 3:
-            return await ctx.send(f"@{ctx.author.name} Uso correcto: !addcmd <nombre> <respuesta>")
-        
+        if len(partes) < 3: return await ctx.send("Uso: !addcmd <nombre> <respuesta>")
         nombre = partes[1].lower().replace('!', '')
-        respuesta = partes[2]
-        
-        self.comandos_custom[nombre] = respuesta
+        self.comandos_custom[nombre] = partes[2]
         self.guardar_comandos_custom()
-        await ctx.send(f"✅ ¡Comando '!{nombre}' creado correctamente, máquina!")
+        await ctx.send(f"✅ ¡Comando '!{nombre}' creado!")
 
     @commands.command(name='delcmd')
     async def cmd_del(self, ctx: commands.Context):
         if not ctx.author.is_mod and ctx.author.name.lower() != CANAL.lower():
-            return await ctx.send(f"@{ctx.author.name} No tienes permisos para borrar comandos.")
-        
+            return await ctx.send(f"@{ctx.author.name} No tienes permisos.")
         partes = ctx.message.content.split(' ', 1)
-        if len(partes) < 2:
-            return await ctx.send(f"@{ctx.author.name} Uso correcto: !delcmd <nombre>")
-        
+        if len(partes) < 2: return await ctx.send("Uso: !delcmd <nombre>")
         nombre = partes[1].lower().replace('!', '')
-        
         if nombre in self.comandos_custom:
             del self.comandos_custom[nombre]
             self.guardar_comandos_custom()
-            await ctx.send(f"🗑️ ¡Comando '!{nombre}' borrado con éxito!")
+            await ctx.send(f"🗑️ ¡Comando '!{nombre}' borrado!")
         else:
-            await ctx.send(f"❌ El comando '!{nombre}' no existe en los personalizados.")
+            await ctx.send(f"❌ El comando '!{nombre}' no existe.")
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
         es_admin_o_mod = ctx.author.is_mod or ctx.author.name.lower() == CANAL.lower()
         customs = ", ".join([f"!{c}" for c in self.comandos_custom.keys()])
-        custom_txt = f" | 📌 Custom (Mod): {customs}" if (es_admin_o_mod and customs) else ""
-        await ctx.send(f"🤖 IA: !ia o !hola | 🎮 Juegos: !ahorcado, !3enraya, !adivinar, !vf, !trivia | 🎲 Extras: !festero, !amor, !ruleta{custom_txt}")
+        custom_txt = f" | 📌 Custom: {customs}" if (es_admin_o_mod and customs) else ""
+        await ctx.send(f"🤖 IA: !ia | 🕹️ Arcade: !pelea @user, !invasion, !3enraya, !ahorcado | 🎲 Extras: !festero, !amor, !ruleta{custom_txt}")
 
     @commands.command(name='normas')
     async def cmd_normas(self, ctx: commands.Context):
@@ -204,47 +336,32 @@ class Bot(commands.Bot):
 
     @commands.command(name='prime')
     async def cmd_prime(self, ctx: commands.Context):
-        await ctx.send("🔔 ¡Apoya con Amazon Prime! Consigue insignias, emotes exclusivos y apoya las sesiones de JONAS RDB.")
+        await ctx.send("🔔 ¡Apoya con Amazon Prime! Consigue insignias y emotes exclusivos.")
 
     @commands.command(name='ia', aliases=['hola', 'chat'])
     async def ia_command(self, ctx: commands.Context):
-        print(f"[DEBUG] Comando !ia ejecutado por: {ctx.author.name}")
-        
-        if not ai_client: 
-            print("[DEBUG ERROR] ai_client es None. La API key de Gemini no está cargada.")
-            return await ctx.send(f"@{ctx.author.name} Configura la clave de la API en el entorno.")
-        
+        if not ai_client: return await ctx.send(f"@{ctx.author.name} Falta configurar la API key de Gemini.")
         content_parts = ctx.message.content.split(' ', 1)
         prompt_usuario = content_parts[1] if len(content_parts) > 1 else "¡Hola tío!"
-        
         try:
             contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
-            prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{ctx.author.name} te dice directamente: '{prompt_usuario}'. Resóndele metiéndote en la conversación de forma natural."
-
-            print(f"[DEBUG] Enviando prompt a Gemini...")
+            prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{ctx.author.name} te dice: '{prompt_usuario}'. Resóndele de forma natural."
             response = ai_client.models.generate_content(
                 model='gemini-3.5-flash',
                 contents=prompt_final,
                 config={
                     'system_instruction': (
                         "Eres una persona real, un colega más y viewer habitual en el canal de Twitch de Jonas RDB. "
-                        "Hablas de tú, con total naturalidad, jerga coloquial de España (tío, mola, brutal, ostras, crack, etc.), "
-                        "opinando de lo que te digan y de lo que se hable en el chat. "
-                        "PROHIBIDO absoluto sonar como un asistente, NUNCA digas cosas como '¿En qué puedo ayudarte?', 'Soy un bot', "
-                        "ni actúes con formalidad. Eres un amigo más tomando algo mientras escucha la sesión de música Remember. "
-                        "Responde de forma directa, corta y natural (máximo 250 caracteres)."
+                        "Hablas de tú, con total naturalidad, jerga coloquial de España (tío, mola, brutal, crack, etc.). "
+                        "PROHIBIDO sonar como asistente o bot. Breve y directo (máx 250 caracteres)."
                     ),
                 }
             )
-            
             texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Totalmente de acuerdo. 🔥"
-            print(f"[DEBUG] Respuesta recibida de Gemini: {texto_respuesta}")
             await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:350]}")
-            
         except Exception as e:
-            print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
-            traceback.print_exc()
-            await ctx.send(f"@{ctx.author.name} ERROR GEMINI: {type(e).__name__} - {str(e)[:150]}")
+            print(f"[ERROR GEMINI] {e}")
+            await ctx.send(f"@{ctx.author.name} ¡Vaya temazo está sonando! 🎧🔥")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
@@ -309,74 +426,6 @@ class Bot(commands.Bot):
             await ctx.send(f"💀 ¡Game Over! Era: {self.ahorcado_palabra}.")
         else:
             await ctx.send(f"Palabra: {oculto} | Intentos: {self.ahorcado_intentos}")
-
-    @commands.command(name='adivinar')
-    async def start_adivinar(self, ctx: commands.Context):
-        if self.num_activo: return await ctx.send("¡Número activo! Adivina con !n <numero>")
-        self.num_secreto = random.randint(1, 50)
-        self.num_activo = True
-        await ctx.send("🔢 He pensado un número del 1 al 50. ¡Adivina con !n <numero>")
-
-    @commands.command(name='n')
-    async def play_adivinar(self, ctx: commands.Context):
-        if not self.num_activo: return
-        try: intento = int(ctx.message.content.split()[1])
-        except: return
-        if intento == self.num_secreto:
-            self.num_activo = False
-            await ctx.send(f"🎉 ¡Acertaste el número secreto ({self.num_secreto}), @{ctx.author.name}!")
-        elif intento < self.num_secreto: await ctx.send(f"🔼 ¡Sube, @{ctx.author.name}!")
-        else: await ctx.send(f"🔽 ¡Baja, @{ctx.author.name}!")
-
-    @commands.command(name='vf')
-    async def vf_start(self, ctx: commands.Context):
-        if self.vf_activo: return await ctx.send("¡Ya hay un V/F activo! Responde con !v o !f")
-        preguntas = [
-            ("El estilo Trance se originó en los años 90.", "V"),
-            ("El vinilo fue inventado en el año 2005.", "F"),
-            ("El Eurodance mezcla House, Synthpop y Rap.", "V")
-        ]
-        pregunta, self.vf_respuesta = random.choice(preguntas)
-        self.vf_activo = True
-        await ctx.send(f"🧠 VERDADERO O FALSO: {pregunta} (Responde con !v o !f)")
-
-    @commands.command(name='v')
-    async def vf_v(self, ctx: commands.Context):
-        if not self.vf_activo: return
-        self.vf_activo = False
-        if self.vf_respuesta == "V": await ctx.send(f"✅ ¡Correcto @{ctx.author.name}! Era VERDADERO. 🔥")
-        else: await ctx.send(f"❌ ¡Fallaste @{ctx.author.name}! Era FALSO. 😜")
-
-    @commands.command(name='f')
-    async def vf_f(self, ctx: commands.Context):
-        if not self.vf_activo: return
-        self.vf_activo = False
-        if self.vf_respuesta == "F": await ctx.send(f"✅ ¡Correcto @{ctx.author.name}! Era FALSO. 🔥")
-        else: await ctx.send(f"❌ ¡Fallaste @{ctx.author.name}! Era VERDADERO. 😜")
-
-    @commands.command(name='trivia')
-    async def trivia_start(self, ctx: commands.Context):
-        if self.trivia_activo: return await ctx.send("¡Ya hay una trivia activa! Responde con !r <A/B/C>")
-        preguntas = [
-            ("¿Cuántos BPM suele tener el Hardstyle? (A) 120 (B) 150 (C) 90", "B"),
-            ("¿Qué significa DJ? (A) Disc Jockey (B) Dance Jam (C) Digital Juke", "A"),
-            ("¿En qué década nació el Eurodance? (A) 70s (B) 80s (C) 90s", "C")
-        ]
-        pregunta, self.trivia_respuesta = random.choice(preguntas)
-        self.trivia_activo = True
-        await ctx.send(f"💡 TRIVIA: {pregunta} (Responde con !r A, !r B o !r C)")
-
-    @commands.command(name='r')
-    async def trivia_play(self, ctx: commands.Context):
-        if not self.trivia_activo: return
-        msg = ctx.message.content.split()
-        if len(msg) < 2: return
-        intento = msg[1].upper()
-        self.trivia_activo = False
-        if intento == self.trivia_respuesta:
-            await ctx.send(f"🎉 ¡Toma ya, @{ctx.author.name} ha acertado ({self.trivia_respuesta})!")
-        else:
-            await ctx.send(f"❌ Casi, @{ctx.author.name}. La correcta era la {self.trivia_respuesta}.")
 
     @commands.command(name='3enraya')
     async def ttt_start(self, ctx: commands.Context):
