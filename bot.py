@@ -109,7 +109,7 @@ class Bot(commands.Bot):
                     prompt = f"Conversación actual en el chat:\n[{contexto_completo}]\n\nOpina, ríete o suelta un comentario corto a lo que se está hablando, como un usuario más del chat."
                     
                     response = ai_client.models.generate_content(
-                        model='gemini-2.5-flash',
+                        model='gemini-3.5-flash',
                         contents=prompt,
                         config={
                             'system_instruction': (
@@ -139,7 +139,7 @@ class Bot(commands.Bot):
                             contexto_previo = " | ".join(self.ultimos_mensajes_chat[-5:]) if self.ultimos_mensajes_chat else "Silencio en el chat."
                             prompt = f"El chat lleva un rato tranquilo. Últimas cosas dichas: [{contexto_previo}]. Suelta un comentario guapo sobre la música Remember, la sesión o para romper el hielo como un colega."
                             response = ai_client.models.generate_content(
-                                model='gemini-2.5-flash',
+                                model='gemini-3.5-flash',
                                 contents=prompt,
                                 config={
                                     'system_instruction': "Eres un colega más en el chat de Twitch. Escribe corto, súper natural, como si estuvieras viendo el directo desde el sofá.",
@@ -223,7 +223,7 @@ class Bot(commands.Bot):
 
             print(f"[DEBUG] Enviando prompt a Gemini...")
             response = ai_client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.5-flash',
                 contents=prompt_final,
                 config={
                     'system_instruction': (
@@ -244,7 +244,6 @@ class Bot(commands.Bot):
         except Exception as e:
             print(f"[ERROR GEMINI DETALLADO] Tipo: {type(e).__name__} | Mensaje: {e}")
             traceback.print_exc()
-            # Mostramos el error exacto en el chat para diagnosticar qué pasa en la API
             await ctx.send(f"@{ctx.author.name} ERROR GEMINI: {type(e).__name__} - {str(e)[:150]}")
 
     @commands.command(name='festero')
