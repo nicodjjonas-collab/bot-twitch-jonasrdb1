@@ -10,7 +10,7 @@ from google import genai
 
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'jonasrdb').lower() 
-CANAL = os.environ.get('TWITCH_CANAL', 'jonasrdb').lower()
+CANAL = os.environ.get('TWITCH_CANAL', 'sesionesoldschool').lower()
 
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
@@ -135,7 +135,7 @@ class Bot(commands.Bot):
                         contents=prompt,
                         config={
                             'system_instruction': (
-                                "Eres un colega más en el chat de Twitch de Jonas RDB. Eres un espectador humano, "
+                                f"Eres un colega más en el chat de Twitch de {CANAL}. Eres un espectador humano, "
                                 "hablas en español de España con total naturalidad (tío, mola, brutal, qué pasada, etc.). "
                                 "NUNCA digas que eres una IA o un asistente. No saludes formalmente. Sé súper breve y directo."
                             ),
@@ -188,7 +188,7 @@ class Bot(commands.Bot):
             return await ctx.send(f"@{ctx.author.name} No puedes pegarte a ti mismo, máquina. 🥊")
 
         self.pelea_activa = True
-        self.invasion_activa = False # Desactiva invasión si hay pelea
+        self.invasion_activa = False
         self.peleador_1 = ctx.author.name
         self.peleador_2 = rival
         self.vida_p1 = 100
@@ -268,7 +268,7 @@ class Bot(commands.Bot):
             return await ctx.send(f"👾 ¡Ya hay una invasión activa! Dispara con `!disparar`")
         
         self.invasion_activa = True
-        self.pelea_activa = False # Desactiva pelea si hay invasión
+        self.pelea_activa = False
         self.alien_vida = 100
         
         self.actualizar_txt_obs(f"👾 JEFE ALIEN: 💚 {self.alien_vida}/100 HP | Usa !disparar")
@@ -332,7 +332,7 @@ class Bot(commands.Bot):
 
     @commands.command(name='redes')
     async def cmd_redes(self, ctx: commands.Context):
-        await ctx.send("🌐 Sígueme en los directos y redes para no perderte nada de JONAS RDB.")
+        await ctx.send("🌐 Sígueme en los directos y redes para no perderte nada de Sesiones Old School.")
 
     @commands.command(name='prime')
     async def cmd_prime(self, ctx: commands.Context):
@@ -351,7 +351,7 @@ class Bot(commands.Bot):
                 contents=prompt_final,
                 config={
                     'system_instruction': (
-                        "Eres una persona real, un colega más y viewer habitual en el canal de Twitch de Jonas RDB. "
+                        f"Eres una persona real, un colega más y viewer habitual en el canal de Twitch de {CANAL}. "
                         "Hablas de tú, con total naturalidad, jerga coloquial de España (tío, mola, brutal, crack, etc.). "
                         "PROHIBIDO sonar como asistente o bot. Breve y directo (máx 250 caracteres)."
                     ),
