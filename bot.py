@@ -6,27 +6,33 @@ import asyncio
 import traceback
 import twitchio
 from twitchio.ext import commands
-from google import genai
-from google.genai import types
+from openai import OpenAI  # Usamos el cliente compatible con OpenAI para conectar con Qwen
 
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
 
 CANALES = ['jonasrdb', 'koko_deejay']
 
-GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+# Configuración para Qwen (puedes usar OpenRouter con un modelo gratuito de Qwen o una API compatible)
+QWEN_KEY = os.environ.get('QWEN_API_KEY') or os.environ.get('OPENROUTER_API_KEY')
+QWEN_BASE_URL = os.environ.get('QWEN_BASE_URL', 'https://openrouter.ai/api/v1') # Por defecto OpenRouter
+# Modelo Qwen gratuito recomendado en OpenRouter (ej: qwen/qwen3-coder:free o qwen/qwen-2.5-7b-instruct:free)
+QWEN_MODEL = os.environ.get('QWEN_MODEL', 'qwen/qwen3-coder:free') 
 
-print(f"[INIT] Arrancando bot completo para los canales: {CANALES}")
+print(f"[INIT] Arrancando bot completo con Qwen para los canales: {CANALES}")
 
-ai_client = None
-if GEMINI_KEY:
+qwen_client = None
+if QWEN_KEY:
     try:
-        ai_client = genai.Client(api_key=GEMINI_KEY)
-        print("[INIT] ¡Gemini conectado y listo!")
+        qwen_client = OpenAI(
+            api_key=QWEN_KEY,
+            base_url=QWEN_BASE_URL
+        )
+        print("[INIT] ¡Qwen conectado y listo a través de API compatible!")
     except Exception as e:
-        print(f"[INIT] Error crítico al iniciar Gemini: {e}")
+        print(f"[INIT] Error crítico al iniciar Qwen: {e}")
 else:
-    print("[INIT] AVISO: No se encontró la clave GEMINI_API_KEY en las variables de entorno.")
+    print("[INIT] AVISO: No se encontró QWEN_API_KEY o OPENROUTER_API_KEY en las variables de entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -35,7 +41,7 @@ class Bot(commands.Bot):
             prefix='!',
             initial_channels=CANALES
         )
-        self.ultimos_mensajes_canal = {} # Control de actividad por canal para saber si está activo
+        self.ultimos_mensajes_canal = {} 
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.ultimos_mensajes_chat = {} 
         self.usuarios_saludados = {}    
@@ -84,7 +90,6 @@ class Bot(commands.Bot):
         ]
 
     def canal_esta_activo(self, canal_nombre: str) -> bool:
-        """Considera el canal online/activo si ha habido movimiento en el chat en los últimos 25 minutos."""
         tiempo_transcurrido = time.time() - self.ultimos_mensajes_canal.get(canal_nombre, 0)
         return tiempo_transcurrido < 1500 # 25 minutos
 
@@ -117,7 +122,7 @@ class Bot(commands.Bot):
             print(f"Error al guardar peticiones_{canal}.txt: {e}")
 
     async def event_ready(self):
-        print(f'=== ¡BOT COMPLETO CONECTADO EN: {CANALES} ===')
+        print(f'=== ¡BOT CON QWEN CONECTADO EN: {CANALES} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
         asyncio.create_task(self.bucle_repartir_puntos_actividad())
 
@@ -134,7 +139,6 @@ class Bot(commands.Bot):
         autor_lower = autor.lower()
         canal_nombre = message.channel.name.lower()
 
-        # Actualizamos el registro de actividad de este canal en concreto
         self.ultimos_mensajes_canal[canal_nombre] = time.time()
 
         if canal_nombre not in self.juegos_estado:
@@ -221,14 +225,13 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta de golpe: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (RESPUESTA HUMANA)
+        # INTELIGENCIA ARTIFICIAL (QWEN)
         # ==========================================
         if BOT_NICK in content_lower or "sesiones" in content_lower or message.mention_is_me:
-            # Si el canal está inactivo (offline), la IA no responde
             if not self.canal_esta_activo(canal_nombre):
                 return
 
-            if ai_client:
+            if qwen_client:
                 try:
                     prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
                     if not prompt_usuario:
@@ -236,39 +239,35 @@ class Bot(commands.Bot):
                         
                     contexto_chat = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-6:])
                     
-                    prompt_final = (
+                    system_prompt = (
                         f"Eres un colega más viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
-                        f"Historial reciente del chat: [{contexto_chat}]. "
-                        f"El usuario {autor} te dice exactamente: '{prompt_usuario}'. "
-                        "REGLAS: Habla 100% en español de forma natural, callejera y cercana. Nunca digas que eres una inteligencia artificial o un bot. Opina de verdad sobre lo que te dice y termina siempre con una pregunta corta para seguir la conversación. Máximo 140 caracteres."
+                        "Habla 100% en español de forma natural, callejera y cercana. Nunca digas que eres una inteligencia artificial o un bot. "
+                        "Opina de verdad sobre lo que te dicen y termina siempre con una pregunta corta para seguir la conversación. Máximo 140 caracteres."
                     )
                     
-                    response = ai_client.models.generate_content(
-                        model='gemini-3.5-flash',
-                        contents=prompt_final,
-                        config=types.GenerateContentConfig(
-                            temperature=0.9
-                        ),
+                    response = qwen_client.chat.completions.create(
+                        model=QWEN_MODEL,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": f"Historial reciente del chat: [{contexto_chat}]. El usuario {autor} te dice: '{prompt_usuario}'"}
+                        ],
+                        temperature=0.9,
+                        max_tokens=100
                     )
                     
-                    if response and response.text:
-                        texto_respuesta = response.text.strip().replace('\n', ' ')
+                    if response and response.choices:
+                        texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
                         await message.channel.send(f"@{autor} {texto_respuesta[:180]}")
                         return
                 except Exception as e:
-                    error_str = str(e)
-                    print(f"[ERROR CRÍTICO GEMINI]: {error_str}")
-                    if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                        print(f"[AVISO] Cuota de Gemini agotada temporalmente en {canal_nombre}.")
-                    else:
-                        await message.channel.send(f"@{autor} [Error IA]: {error_str[:100]}")
+                    print(f"[ERROR CRÍTICO QWEN]: {e}")
                     return
 
         await self.handle_commands(message)
 
     async def bucle_repartir_puntos_actividad(self):
         while True:
-            await asyncio.sleep(300) # Cada 5 minutos reparte puntos a los activos
+            await asyncio.sleep(300) 
             for canal in CANALES:
                 puntos_canal = self.cargar_puntos_canal(canal)
                 if puntos_canal:
@@ -282,22 +281,22 @@ class Bot(commands.Bot):
             try:
                 await asyncio.sleep(180) 
                 for canal_nombre in CANALES:
-                    # Comprobamos de manera independiente si este canal está activo (online)
                     if not self.canal_esta_activo(canal_nombre):
-                        continue # Si está offline/inactivo, no dice nada en este canal
+                        continue 
 
                     canal_obj = self.get_channel(canal_nombre)
                     if canal_obj:
-                        if ai_client:
+                        if qwen_client:
                             try:
-                                response = ai_client.models.generate_content(
-                                    model='gemini-3.5-flash',
-                                    contents="Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres.",
-                                    config=types.GenerateContentConfig(
-                                        temperature=0.9
-                                    ),
+                                response = qwen_client.chat.completions.create(
+                                    model=QWEN_MODEL,
+                                    messages=[
+                                        {"role": "system", "content": "Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres."}
+                                    ],
+                                    temperature=0.9,
+                                    max_tokens=80
                                 )
-                                msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
+                                msg = (response.choices[0].message.content if response and response.choices else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
                             except Exception:
                                 msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
                         else:
@@ -472,7 +471,7 @@ class Bot(commands.Bot):
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send(f"🤖 IA: @{BOT_NICK} | 🏆 Liga: !liga, !puntos, !premio | 🎮 Juegos: !ruleta, !ahorcado, !trivia, !vf, !duelo | 🎵 Música: !pedir, !sala, !festero, !normas, !suscribete, !redes")
+        await ctx.send(f"🤖 Bot Qwen: @{BOT_NICK} | 🏆 Liga: !liga, !puntos, !premio | 🎮 Juegos: !ruleta, !ahorcado, !trivia, !vf, !duelo | 🎵 Música: !pedir, !sala, !festero, !normas, !suscribete, !redes")
 
 async def main():
     if not TOKEN:
