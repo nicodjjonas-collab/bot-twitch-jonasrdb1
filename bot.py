@@ -235,8 +235,7 @@ class Bot(commands.Bot):
                         model='gemini-3.5-flash',
                         contents=prompt_final,
                         config=types.GenerateContentConfig(
-                            temperature=0.9,
-                            tools=[]
+                            temperature=0.9
                         ),
                     )
                     
@@ -280,8 +279,7 @@ class Bot(commands.Bot):
                                         model='gemini-3.5-flash',
                                         contents="Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres.",
                                         config=types.GenerateContentConfig(
-                                            temperature=0.9,
-                                            tools=[]
+                                            temperature=0.9
                                         ),
                                     )
                                     msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
