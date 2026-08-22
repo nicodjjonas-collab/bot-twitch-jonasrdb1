@@ -16,7 +16,7 @@ CANALES = ['jonasrdb', 'koko_deejay']
 
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
-print(f"[INIT] Arrancando bot ULTRATOP DEFINITIVO para canales: {CANALES}")
+print(f"[INIT] Arrancando bot ULTRATOP DEFINITIVO v2 para canales: {CANALES}")
 
 ai_client = None
 if GEMINI_KEY:
@@ -136,7 +136,7 @@ class Bot(commands.Bot):
         if canal_nombre not in self.usuarios_saludados:
             self.usuarios_saludados[canal_nombre] = set()
 
-        # Sumar puntos independientes de la Liga de Fieles
+        # Sumar puntos independientes de la Liga
         puntos_canal = self.cargar_puntos_canal(canal_nombre)
         if autor_lower not in puntos_canal:
             puntos_canal[autor_lower] = 50
@@ -144,10 +144,10 @@ class Bot(commands.Bot):
             puntos_canal[autor_lower] += 2
         self.guardar_puntos_canal(canal_nombre, puntos_canal)
 
-        # Saludo automático a nuevos espectadores en este canal
+        # Saludo automático a nuevos espectadores
         if autor_lower not in self.usuarios_saludados[canal_nombre] and autor_lower != canal_nombre:
             self.usuarios_saludados[canal_nombre].add(autor_lower)
-            await message.channel.send(f"¡Qué pasa @{autor}! Pilla sitio, disfruta del buen Remember (Makina, Trance, Eurodance...) y prueba comandos como `!ruleta`, `!ahorcado` o `!liga`. 🎧🔥")
+            await message.channel.send(f"¡Qué pasa @{autor}! Pilla sitio, disfruta del buen Remember y prueba comandos como `!ruleta`, `!ahorcado` o `!liga`. 🎧🔥")
 
         self.ultimos_mensajes_chat[canal_nombre].append(f"{autor}: {message.content}")
         if len(self.ultimos_mensajes_chat[canal_nombre]) > 15:
@@ -189,7 +189,7 @@ class Bot(commands.Bot):
                     estado["intentos_ahorcado"] -= 1
                     if estado["intentos_ahorcado"] <= 0:
                         estado["ahorcado_activo"] = False
-                        await message.channel.send(f"💀 ¡Se acabaron los intentos! El ahorcado se quedó sin vida. La palabra era: **{estado['palabra_secreta'].upper()}**")
+                        await message.channel.send(f"💀 ¡Se acabaron los intentos! La palabra era: **{estado['palabra_secreta'].upper()}**")
                     else:
                         await message.channel.send(f"❌ Fallaste @{autor}. Quedan {estado['intentos_ahorcado']} intentos.")
             elif c_low == estado["palabra_secreta"]:
@@ -198,7 +198,7 @@ class Bot(commands.Bot):
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta de golpe: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
-        # Mención a la IA (@sesionesoldschool) 100% blindada y humana
+        # Mención a la IA (@sesionesoldschool) con comportamiento 100% humano, charlatán y pregunton
         content_lower = content.lower()
         if BOT_NICK in content_lower or "sesiones" in content_lower:
             if ai_client:
@@ -207,30 +207,27 @@ class Bot(commands.Bot):
                     if not prompt_usuario:
                         prompt_usuario = "¡Hola máquina!"
                         
-                    contexto_actual = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-8:])
-                    prompt_final = f"Historial reciente del chat en {canal_nombre}: [{contexto_actual}]\n\n{autor} te dice: '{prompt_usuario}'. Respóndele como un colega más que está viendo el directo de música remember."
-                    
-                    chat_session = ai_client.chats.create(
-                        model='gemini-3.6-flash',
-                        config={
-                            'system_instruction': (
-                                f"Eres un colega más que está viendo el directo de música remember en el canal de Twitch de {canal_nombre}. "
-                                "Hablas exclusivamente en español, de forma muy natural, coloquial y callejera (como un amigo en el chat o en un bar). "
-                                "REGLAS DE ORO: "
-                                "1. Jamás digas que eres una inteligencia artificial, un bot, un modelo o un asistente. "
-                                "2. No uses fórmulas de atención al cliente ni discursos formales. "
-                                "3. Sé directo, breve y ve al grano (máximo 120 caracteres, como un mensaje rápido de Twitch). "
-                                "4. Opina sobre la música, el ambiente, el chat o vacila con buen rollo si te preguntan."
-                            ),
-                        }
+                    prompt_final = (
+                        f"Estás viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
+                        f"Un colega del chat llamado {autor} te ha dicho o preguntado esto: '{prompt_usuario}'. "
+                        "RESPUESTA HUMANA OBLIGATORIA: "
+                        "1. Responde de forma súper natural, callejera y cercana (como un amigo en un bar o en el chat). "
+                        "2. Opina de verdad sobre lo que te dice, y TERMINA SIEMPRE con una pregunta corta hacia él o hacia el chat para mantener la conversación viva (por ejemplo: '¿te acuerdas de ese tema?', '¿qué tal lo ves?', '¿qué otro track meterías?'). "
+                        "3. NUNCA uses frases de robot, ni digas que eres IA, ni uses textos genéricos repetitivos. "
+                        "4. Máximo 150 caracteres."
                     )
-                    response = chat_session.send_message(prompt_final)
-                    texto_respuesta = response.text if response and response.text else "¡Totalmente de acuerdo tío! Menudo temarral."
-                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:150]}".replace('@@', '@'))
+                    
+                    response = ai_client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt_final,
+                    )
+                    
+                    texto_respuesta = response.text if response and response.text else "¿Qué me dices de eso tío? ¿Cómo lo ves?"
+                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:180]}".replace('@@', '@'))
                     return
                 except Exception as e:
                     print(f"[ERROR GEMINI]: {e}")
-                    await message.channel.send(f"@{autor} ¡Totalmente, vaya temazo llevamos en cabina! 🔥")
+                    await message.channel.send(f"@{autor} ¡Totalmente tío! ¿Qué te parece este temarral o qué? 🔥")
                     return
 
         await self.handle_commands(message)
@@ -255,19 +252,16 @@ class Bot(commands.Bot):
                         canal_obj = self.get_channel(canal_nombre)
                         if canal_obj:
                             if ai_client:
-                                chat_session = ai_client.chats.create(
-                                    model='gemini-3.6-flash',
-                                    config={
-                                        'system_instruction': (
-                                            f"Eres un colega más viendo el directo de música remember en el canal {canal_nombre} de Twitch. "
-                                            "El chat lleva un rato callado. Suelta un comentario corto, súper natural y callejero sobre la sesión, "
-                                            "el buen rollo o animando a usar !ruleta o !ahorcado. "
-                                            "Cero formalidades, máximo 100 caracteres."
-                                        ),
-                                    }
+                                prompt_autonomo = (
+                                    f"Estás viendo el directo de música remember en el canal {canal_nombre}. "
+                                    "El chat lleva un rato callado. Suelta un comentario corto, súper natural y callejero sobre la sesión "
+                                    "y termina lanzando una pregunta al chat para que vuelvan a hablar. Máximo 100 caracteres."
                                 )
-                                response = chat_session.send_message("Suelta una frase corta para romper el hielo en el chat.")
-                                msg = (response.text if response and response.text else "¡Menuda sesión guapa nos estamos marcando hoy familia!").replace('\n', ' ')
+                                response = ai_client.models.generate_content(
+                                    model='gemini-2.5-flash',
+                                    contents=prompt_autonomo,
+                                )
+                                msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis durmiendo o qué track os pongo?").replace('\n', ' ')
                             else:
                                 msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
                             await canal_obj.send(f"{msg}")
@@ -275,7 +269,7 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # ==================== COMANDOS COMPLETOS AL MÁXIMO ====================
+    # ==================== COMANDOS ====================
 
     @commands.command(name='puntos', aliases=['vatios', 'fiesta'])
     async def cmd_puntos(self, ctx: commands.Context):
@@ -292,7 +286,7 @@ class Bot(commands.Bot):
         if not puntos_canal:
             return await ctx.send("La liga acaba de empezar. ¡Escribe en el chat para pillar plaza!")
         ranking_ordenado = sorted(puntos_canal.items(), key=lambda x: x[1], reverse=True)[:3]
-        texto_ranking = "🏆 Top 3 de la liga (¡el primero se lleva la sesión exclusiva a fin de mes!): "
+        texto_ranking = "🏆 Top 3 de la liga: "
         for i, (usr, pts) in enumerate(ranking_ordenado, 1):
             medalla = "🥇" if i == 1 else ("🥈" if i == 2 else "🥉")
             texto_ranking += f"{medalla} @{usr} ({pts} pts)  "
@@ -304,7 +298,7 @@ class Bot(commands.Bot):
         if not ctx.author.is_mod and ctx.author.name.lower() != canal:
             return await ctx.send(f"@{ctx.author.name} Comando exclusivo para moderadores.")
         self.guardar_puntos_canal(canal, {})
-        await ctx.send("¡Liga reseteada! Arranca el contador del nuevo mes para llevarse la sesión de regalo. 🎁🔥")
+        await ctx.send("¡Liga reseteada! Arranca el contador del nuevo mes. 🎁🔥")
 
     @commands.command(name='ruleta', aliases=['suerte', 'apostar'])
     async def cmd_ruleta(self, ctx: commands.Context):
@@ -339,7 +333,7 @@ class Bot(commands.Bot):
         estado["ahorcado_activo"] = True
         
         oculto = "_" * len(estado["palabra_secreta"])
-        await ctx.send(f"🕹️ **¡Arranca el Ahorcado Clubber!** Pista: Música remember. `{oculto}` (Escribe letras o arriésgate con la palabra)")
+        await ctx.send(f"🕹️ **¡Arranca el Ahorcado Clubber!** Pista: Música remember. `{oculto}` (Escribe letras o arriésgate)")
 
     @commands.command(name='trivia', aliases=['adivina'])
     async def cmd_trivia(self, ctx: commands.Context):
@@ -350,7 +344,7 @@ class Bot(commands.Bot):
         pregunta_obj = random.choice(self.preguntas_trivia)
         estado["trivia_activa"] = True
         estado["trivia_respuesta_correcta"] = pregunta_obj["respuesta"]
-        await ctx.send(f"🧠 **TRIVIA REMEMBER:** {pregunta_obj['pregunta']} (¡Responde en el chat y gana puntos!)")
+        await ctx.send(f"🧠 **TRIVIA REMEMBER:** {pregunta_obj['pregunta']} (¡Responde en el chat!)")
 
     @commands.command(name='duelo')
     async def cmd_duelo(self, ctx: commands.Context):
@@ -414,19 +408,19 @@ class Bot(commands.Bot):
 
     @commands.command(name='normas', aliases=['reglas'])
     async def cmd_normas(self, ctx: commands.Context):
-        await ctx.send("📜 **Normas del canal:** 1. Respeto ante todo. 2. Cero toxicidad. 3. ¡Disfruta del buen Remember, el Hard Dance y el Trance al máximo! 🎧")
+        await ctx.send("📜 **Normas:** 1. Respeto. 2. Cero toxicidad. 3. ¡Disfruta del buen Remember, Hard Dance y Trance! 🎧")
 
     @commands.command(name='suscribete', aliases=['sub'])
     async def cmd_suscribete(self, ctx: commands.Context):
-        await ctx.send("⭐ ¡Apoya el canal suscribiéndote con Prime o de pago! Llévate los emblemas exclusivos y participa en los sorteos VIP de sesiones a fin de mes. 🚀")
+        await ctx.send("⭐ ¡Apoya el canal suscribiéndote! Llévate emblemas exclusivos y participa en sorteos VIP.")
 
     @commands.command(name='redes', aliases=['social'])
     async def cmd_redes(self, ctx: commands.Context):
-        await ctx.send("🌐 ¡Sígueme en redes y no te pierdas ningún directo ni sesión exclusiva de Remember!")
+        await ctx.send("🌐 ¡Sígueme en redes para no perderte ninguna sesión exclusiva!")
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send(f"🤖 IA: @{BOT_NICK} | 🏆 Liga/Juegos: !liga, !puntos, !ruleta, !ahorcado, !trivia, !duelo | 🎵 Música: !pedir, !ultimostemas, !sala | ⭐ Info: !normas, !suscribete")
+        await ctx.send(f"🤖 IA: @{BOT_NICK} | 🏆 Juegos: !liga, !puntos, !ruleta, !ahorcado, !trivia, !duelo | 🎵 Música: !pedir, !ultimostemas, !sala")
 
 async def main():
     if not TOKEN:
