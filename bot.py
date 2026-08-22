@@ -7,6 +7,7 @@ import traceback
 import twitchio
 from twitchio.ext import commands
 from google import genai
+from google.genai import types
 
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
@@ -16,7 +17,7 @@ CANALES = ['jonasrdb', 'koko_deejay']
 
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
-print(f"[INIT] Arrancando bot ULTRATOP DEFINITIVO v2 para canales: {CANALES}")
+print(f"[INIT] Arrancando bot ULTRATOP DEFINITIVO v3 para canales: {CANALES}")
 
 ai_client = None
 if GEMINI_KEY:
@@ -198,7 +199,7 @@ class Bot(commands.Bot):
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta de golpe: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
-        # Mención a la IA (@sesionesoldschool) con comportamiento 100% humano, charlatán y pregunton
+        # Mención a la IA con comportamiento humano, callejero y conversacional estricto
         content_lower = content.lower()
         if BOT_NICK in content_lower or "sesiones" in content_lower:
             if ai_client:
@@ -207,22 +208,28 @@ class Bot(commands.Bot):
                     if not prompt_usuario:
                         prompt_usuario = "¡Hola máquina!"
                         
-                    prompt_final = (
-                        f"Estás viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
-                        f"Un colega del chat llamado {autor} te ha dicho o preguntado esto: '{prompt_usuario}'. "
-                        "RESPUESTA HUMANA OBLIGATORIA: "
-                        "1. Responde de forma súper natural, callejera y cercana (como un amigo en un bar o en el chat). "
-                        "2. Opina de verdad sobre lo que te dice, y TERMINA SIEMPRE con una pregunta corta hacia él o hacia el chat para mantener la conversación viva (por ejemplo: '¿te acuerdas de ese tema?', '¿qué tal lo ves?', '¿qué otro track meterías?'). "
-                        "3. NUNCA uses frases de robot, ni digas que eres IA, ni uses textos genéricos repetitivos. "
-                        "4. Máximo 150 caracteres."
+                    contexto_chat = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-6:])
+                    
+                    system_instruction_text = (
+                        f"Eres un colega más que está viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
+                        "Hablas 100% en español, de forma muy natural, callejera y cercana (como un amigo en el chat). "
+                        "REGLAS ESTRICTAS: "
+                        "1. Jamás digas que eres una IA, bot o asistente. "
+                        "2. Opina de forma genuina sobre lo que te dicen o sobre la música. "
+                        "3. DEBES terminar siempre con una pregunta corta para seguir la conversación (ej: '¿te mola ese estilo?', '¿qué otro tema meterías?', '¿te acuerdas de ese track?'). "
+                        "4. Sé breve (máximo 140 caracteres, estilo chat rápido de Twitch)."
                     )
                     
                     response = ai_client.models.generate_content(
                         model='gemini-2.5-flash',
-                        contents=prompt_final,
+                        contents=f"Historial reciente: [{contexto_chat}]\n\n{autor} te dice: {prompt_usuario}",
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction_text,
+                            temperature=0.9,
+                        ),
                     )
                     
-                    texto_respuesta = response.text if response and response.text else "¿Qué me dices de eso tío? ¿Cómo lo ves?"
+                    texto_respuesta = response.text if response and response.text else "¿Qué me dices tío? ¿Cómo lo ves?"
                     await message.channel.send(f"@{autor} {texto_respuesta.strip()[:180]}".replace('@@', '@'))
                     return
                 except Exception as e:
@@ -252,16 +259,15 @@ class Bot(commands.Bot):
                         canal_obj = self.get_channel(canal_nombre)
                         if canal_obj:
                             if ai_client:
-                                prompt_autonomo = (
-                                    f"Estás viendo el directo de música remember en el canal {canal_nombre}. "
-                                    "El chat lleva un rato callado. Suelta un comentario corto, súper natural y callejero sobre la sesión "
-                                    "y termina lanzando una pregunta al chat para que vuelvan a hablar. Máximo 100 caracteres."
-                                )
                                 response = ai_client.models.generate_content(
                                     model='gemini-2.5-flash',
-                                    contents=prompt_autonomo,
+                                    contents="El chat lleva un rato callado en el directo de música remember. Suelta una frase corta de colega y haz una pregunta rápida al chat.",
+                                    config=types.GenerateContentConfig(
+                                        system_instruction="Eres un espectador colega en el chat de Twitch. Sé natural, callejero, breve y haz una pregunta al chat. Máximo 100 caracteres.",
+                                        temperature=0.9,
+                                    ),
                                 )
-                                msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis durmiendo o qué track os pongo?").replace('\n', ' ')
+                                msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
                             else:
                                 msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
                             await canal_obj.send(f"{msg}")
