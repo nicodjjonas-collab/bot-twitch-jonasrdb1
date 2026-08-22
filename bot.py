@@ -11,11 +11,13 @@ from openai import OpenAI
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
 
-CANALES = ['jonasrdb', 'koko_deejay']
+# Leemos el canal principal de las variables de entorno o usamos una lista por defecto
+canal_env = os.environ.get('TWITCH_CANAL', 'jonasrdb').strip().lower()
+CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
 QWEN_KEY = os.environ.get('QWEN_API_KEY')
 QWEN_BASE_URL = os.environ.get('QWEN_BASE_URL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1')
-QWEN_MODEL = os.environ.get('QWEN_MODEL', 'qwen-plus') 
+QWEN_MODEL = os.environ.get('QWEN_MODEL', 'qwen-max') 
 
 print(f"[INIT] Arrancando bot completo con Qwen para los canales: {CANALES} (Bot nick: {BOT_NICK})")
 
@@ -165,7 +167,7 @@ class Bot(commands.Bot):
         content_lower = content.lower()
         estado = self.juegos_estado[canal_nombre]
 
-        # Comprobar Juegos (Trivia, VF, Ahorcado, Duelo...)
+        # Comprobar Juegos
         if estado["trivia_activa"] and content_lower == estado["trivia_respuesta_correcta"].lower():
             estado["trivia_activa"] = False
             puntos_canal[autor_lower] += 50 
@@ -383,7 +385,7 @@ class Bot(commands.Bot):
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send("🤖 Comandos: !liga, !puntos, !ruleta, !ahorcado, !trivia, !vf, !pedir, !sala, !festero")
+        await ctx.send("🤖 Comandos: !liga, !puntos, !ruleta, !ahorcado, !trivia, !vf, !pedir, !sala, ist festero")
 
 async def main():
     if not TOKEN:
