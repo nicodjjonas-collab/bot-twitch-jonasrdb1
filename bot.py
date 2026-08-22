@@ -210,8 +210,7 @@ class Bot(commands.Bot):
         # ==========================================
         # INTELIGENCIA ARTIFICIAL (QWEN)
         # ==========================================
-        # Se activa si mencionan al bot, ponen su nick o lo mencionan directamente en Twitch
-        if BOT_NICK in content_lower or "sesiones" in content_lower or message.mention_is_me:
+        if BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower or "sesiones" in content_lower:
             if not self.canal_esta_activo(canal_nombre):
                 return
 
