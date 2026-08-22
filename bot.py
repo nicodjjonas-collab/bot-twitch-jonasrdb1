@@ -118,12 +118,11 @@ class Bot(commands.Bot):
                     contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
                     prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{message.author.name} te menciona diciendo: '{prompt_usuario}'. Resóndele de forma natural."
                     
-                    print(f"[DEBUG GEMINI] Enviando prompt a Gemini: {prompt_usuario}")
+                    print(f"[DEBUG GEMINI] Enviando chat a Gemini: {prompt_usuario}")
                     
-                    # Llamada directa y compatible con la librería google-genai
-                    response = ai_client.models.generate_content(
+                    # Corrección: Uso de chat sessions recomendado por la SDK oficial
+                    chat_session = ai_client.chats.create(
                         model='gemini-2.5-flash',
-                        contents=prompt_final,
                         config={
                             'system_instruction': (
                                 f"Eres una persona real, un colega más y viewer habitual en el canal de Twitch de {CANAL}. "
@@ -132,6 +131,7 @@ class Bot(commands.Bot):
                             ),
                         }
                     )
+                    response = chat_session.send_message(prompt_final)
                     
                     texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Totalmente de acuerdo. 🔥"
                     print(f"[DEBUG GEMINI] Respuesta recibida: {texto_respuesta}")
@@ -166,13 +166,13 @@ class Bot(commands.Bot):
                     canal_obj = self.get_channel(CANAL)
                     if canal_obj:
                         if ai_client:
-                            response = ai_client.models.generate_content(
+                            chat_session = ai_client.chats.create(
                                 model='gemini-2.5-flash',
-                                contents="El chat lleva un rato tranquilo. Suelta un comentario guapo sobre la música Remember o la sesión para romper el hielo.",
                                 config={
                                     'system_instruction': "Eres un colega más en el chat de Twitch. Escribe corto, súper natural, como si estuvieras viendo el directo desde el sofá.",
                                 }
                             )
+                            response = chat_session.send_message("El chat lleva un rato tranquilo. Suelta un comentario guapo sobre la música Remember o la sesión para romper el hielo.")
                             msg = (response.text if response and response.text else "¡Menuda sesión nos estamos pegando!").replace('\n', ' ')
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
