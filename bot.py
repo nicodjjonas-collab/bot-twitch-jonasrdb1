@@ -16,7 +16,7 @@ CANALES = ['jonasrdb', 'koko_deejay']
 
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
-print(f"[INIT] Arrancando bot completo con Liga, Juegos, IA y Comandos para: {CANALES}")
+print(f"[INIT] Arrancando bot completo para los canales: {CANALES}")
 
 ai_client = None
 if GEMINI_KEY:
@@ -35,7 +35,7 @@ class Bot(commands.Bot):
             prefix='!',
             initial_channels=CANALES
         )
-        self.ultimo_mensaje = time.time()
+        self.ultimos_mensajes_canal = {} # Control de actividad por canal para saber si está activo
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.ultimos_mensajes_chat = {} 
         self.usuarios_saludados = {}    
@@ -57,6 +57,7 @@ class Bot(commands.Bot):
             }
             self.ultimos_mensajes_chat[chan] = []
             self.usuarios_saludados[chan] = set()
+            self.ultimos_mensajes_canal[chan] = time.time()
 
         self.palabras_ahorcado = ["makina", "hardance", "trance", "eurodance", "valencia", "puzle", "spook", "chasis", "pontateri", "bakalao", "cabina", "vinilo"]
         
@@ -81,6 +82,11 @@ class Bot(commands.Bot):
             {"pregunta": "El Trance es un género musical que se originó en los años 50.", "respuesta": "falso"},
             {"pregunta": "El vinilo sigue siendo un formato legendario muy valorado en las sesiones de música remember.", "respuesta": "verdadero"}
         ]
+
+    def canal_esta_activo(self, canal_nombre: str) -> bool:
+        """Considera el canal online/activo si ha habido movimiento en el chat en los últimos 25 minutos."""
+        tiempo_transcurrido = time.time() - self.ultimos_mensajes_canal.get(canal_nombre, 0)
+        return tiempo_transcurrido < 1500 # 25 minutos
 
     def obtener_archivo_puntos(self, canal):
         return f"puntos_liga_{canal.lower()}.json"
@@ -124,10 +130,12 @@ class Bot(commands.Bot):
         if message.echo:
             return
 
-        self.ultimo_mensaje = time.time()
         autor = message.author.name
         autor_lower = autor.lower()
         canal_nombre = message.channel.name.lower()
+
+        # Actualizamos el registro de actividad de este canal en concreto
+        self.ultimos_mensajes_canal[canal_nombre] = time.time()
 
         if canal_nombre not in self.juegos_estado:
             self.juegos_estado[canal_nombre] = {
@@ -216,6 +224,10 @@ class Bot(commands.Bot):
         # INTELIGENCIA ARTIFICIAL (RESPUESTA HUMANA)
         # ==========================================
         if BOT_NICK in content_lower or "sesiones" in content_lower or message.mention_is_me:
+            # Si el canal está inactivo (offline), la IA no responde
+            if not self.canal_esta_activo(canal_nombre):
+                return
+
             if ai_client:
                 try:
                     prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
@@ -246,11 +258,11 @@ class Bot(commands.Bot):
                 except Exception as e:
                     error_str = str(e)
                     print(f"[ERROR CRÍTICO GEMINI]: {error_str}")
-                    await message.channel.send(f"@{autor} [Error IA]: {error_str[:100]}")
+                    if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                        print(f"[AVISO] Cuota de Gemini agotada temporalmente en {canal_nombre}.")
+                    else:
+                        await message.channel.send(f"@{autor} [Error IA]: {error_str[:100]}")
                     return
-            else:
-                await message.channel.send(f"@{autor} ¡Ey! No tengo configurada la API Key de Gemini.")
-                return
 
         await self.handle_commands(message)
 
@@ -269,26 +281,28 @@ class Bot(commands.Bot):
         while True:
             try:
                 await asyncio.sleep(180) 
-                if time.time() - self.ultimo_mensaje > 200:
-                    for canal_nombre in CANALES:
-                        canal_obj = self.get_channel(canal_nombre)
-                        if canal_obj:
-                            if ai_client:
-                                try:
-                                    response = ai_client.models.generate_content(
-                                        model='gemini-3.5-flash',
-                                        contents="Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres.",
-                                        config=types.GenerateContentConfig(
-                                            temperature=0.9
-                                        ),
-                                    )
-                                    msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
-                                except Exception:
-                                    msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
-                            else:
-                                msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
-                            await canal_obj.send(f"{msg}")
-                    self.ultimo_mensaje = time.time()
+                for canal_nombre in CANALES:
+                    # Comprobamos de manera independiente si este canal está activo (online)
+                    if not self.canal_esta_activo(canal_nombre):
+                        continue # Si está offline/inactivo, no dice nada en este canal
+
+                    canal_obj = self.get_channel(canal_nombre)
+                    if canal_obj:
+                        if ai_client:
+                            try:
+                                response = ai_client.models.generate_content(
+                                    model='gemini-3.5-flash',
+                                    contents="Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres.",
+                                    config=types.GenerateContentConfig(
+                                        temperature=0.9
+                                    ),
+                                )
+                                msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
+                            except Exception:
+                                msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
+                        else:
+                            msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
+                        await canal_obj.send(f"{msg}")
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
