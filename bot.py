@@ -198,12 +198,12 @@ class Bot(commands.Bot):
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta de golpe: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
-        # Mención a la IA (@sesionesoldschool) de forma 100% humana y callejera
-        mencion_canal = f"@{BOT_NICK}".lower()
-        if mencion_canal in content.lower():
+        # Mención a la IA (@sesionesoldschool) 100% blindada y humana
+        content_lower = content.lower()
+        if BOT_NICK in content_lower or "sesiones" in content_lower:
             if ai_client:
                 try:
-                    prompt_usuario = content.lower().replace(mencion_canal, "").strip()
+                    prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
                     if not prompt_usuario:
                         prompt_usuario = "¡Hola máquina!"
                         
@@ -226,10 +226,12 @@ class Bot(commands.Bot):
                     )
                     response = chat_session.send_message(prompt_final)
                     texto_respuesta = response.text if response and response.text else "¡Totalmente de acuerdo tío! Menudo temarral."
-                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:150]}")
+                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:150]}".replace('@@', '@'))
+                    return
                 except Exception as e:
                     print(f"[ERROR GEMINI]: {e}")
                     await message.channel.send(f"@{autor} ¡Totalmente, vaya temazo llevamos en cabina! 🔥")
+                    return
 
         await self.handle_commands(message)
 
