@@ -84,7 +84,7 @@ class Bot(commands.Bot):
         ]
 
     def canal_esta_activo(self, canal_nombre: str) -> bool:
-        return True # Forzamos True para que la IA responda siempre sin bloqueos
+        return True
 
     def obtener_archivo_puntos(self, canal):
         return f"puntos_liga_{canal.lower()}.json"
@@ -209,41 +209,38 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (QWEN) - CON DEBUGS VISIBLES
+        # INTELIGENCIA ARTIFICIAL (QWEN) - ACTIVACIÓN FORZADA
         # ==========================================
-        if qwen_client and not content.startswith('!'):
+        es_mencion_bot = BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower or "hola" in content_lower
+        
+        if qwen_client and es_mencion_bot and not content.startswith('!'):
+            print(f"🔥 [EVENTO] Mensaje detectado para la IA de {autor}: '{content}'")
             try:
                 prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
                 if not prompt_usuario:
                     prompt_usuario = "¡Hola máquina!"
-                    
-                contexto_chat = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-6:])
                 
-                print(f"[DEBUG QWEN] Intentando generar respuesta para: '{prompt_usuario}' con modelo {QWEN_MODEL}")
-
-                system_prompt = (
-                    f"Eres un colega más viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
-                    "Habla 100% en español de forma natural, callejera y cercana. Nunca digas que eres una inteligencia artificial o un bot. "
-                    "Opina de verdad sobre lo que te dicen y termina siempre con una pregunta corta para seguir la conversación. Máximo 140 caracteres."
-                )
+                print(f"[DEBUG QWEN] Enviando petición a DashScope...")
                 
                 response = qwen_client.chat.completions.create(
                     model=QWEN_MODEL,
                     messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"Historial reciente del chat: [{contexto_chat}]. El usuario {autor} te dice: '{prompt_usuario}'"}
+                        {"role": "system", "content": f"Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana y callejera. Máximo 140 caracteres."},
+                        {"role": "user", "content": f"El usuario {autor} dice: '{prompt_usuario}'"}
                     ],
                     temperature=0.9,
-                    max_tokens=100
+                    max_tokens=80
                 )
                 
                 if response and response.choices:
                     texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
-                    print(f"[DEBUG QWEN] Respuesta generada con éxito: {texto_respuesta}")
-                    await message.channel.send(f"@{autor} {texto_respuesta[:180]}")
+                    print(f"✅ [ÉXITO QWEN] Respuesta: {texto_respuesta}")
+                    await message.channel.send(f"@{autor} {texto_respuesta}")
                     return
+                else:
+                    print("⚠️ [AVISO QWEN] La respuesta llegó vacía.")
             except Exception as e:
-                print(f"❌ [ERROR CRÍTICO LLAMADA QWEN]: {type(e).__name__} - {e}")
+                print(f"❌ [ERROR CRÍTICO QWEN]: {type(e).__name__} - {e}")
 
         await self.handle_commands(message)
 
