@@ -48,13 +48,7 @@ class Bot(commands.Bot):
         self.ahorcado_intentos = 6
         self.ttt_activo = False
         self.ttt_tablero = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        self.num_activo = False
-        self.num_secreto = 0
-        self.vf_activo = False
-        self.vf_respuesta = ""
-        self.trivia_activo = False
-        self.trivia_respuesta = ""
-
+        
         # Minijuegos Arcade
         self.pelea_activa = False
         self.peleador_1 = None
@@ -113,6 +107,37 @@ class Bot(commands.Bot):
             self.ultimos_mensajes_chat.pop(0)
 
         content = message.content.strip()
+        
+        # Comprobar si mencionan al canal (@sesionesoldschool) para activar la IA
+        mencion_canal = f"@{CANAL}".lower()
+        if mencion_canal in content.lower():
+            if ai_client:
+                try:
+                    prompt_usuario = content.lower().replace(mencion_canal, "").strip()
+                    if not prompt_usuario:
+                        prompt_usuario = "¡Hola tío!"
+                        
+                    contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
+                    prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{message.author.name} te menciona diciendo: '{prompt_usuario}'. Resóndele de forma natural."
+                    
+                    response = ai_client.models.generate_content(
+                        model='gemini-3.5-flash',
+                        contents=prompt_final,
+                        config={
+                            'system_instruction': (
+                                f"Eres una persona real, un colega más y viewer habitual en el canal de Twitch de {CANAL}. "
+                                "Hablas de tú, con total naturalidad, jerga coloquial de España (tío, mola, brutal, crack, etc.). "
+                                "PROHIBIDO sonar como asistente o bot. Breve y directo (máx 250 caracteres)."
+                            ),
+                        }
+                    )
+                    texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Totalmente de acuerdo. 🔥"
+                    await message.channel.send(f"@{message.author.name} {texto_respuesta.strip()[:350]}")
+                except Exception as e:
+                    print(f"[ERROR GEMINI MENCION] {e}")
+                    await message.channel.send(f"@{message.author.name} ¡Vaya temazo está sonando! 🎧🔥")
+
+        # Comprobar comandos personalizados
         if content.startswith('!'):
             partes = content[1:].split(' ', 1)
             nombre_cmd = partes[0].lower()
@@ -123,7 +148,8 @@ class Bot(commands.Bot):
 
         await self.handle_commands(message)
 
-        if not message.content.startswith('!') and random.random() < 0.25 and ai_client:
+        # Intervención espontánea ocasional en el chat
+        if not message.content.startswith('!') and random.random() < 0.25 and ai_client and mencion_canal not in content.lower():
             try:
                 canal_obj = self.get_channel(CANAL)
                 if canal_obj:
@@ -324,7 +350,7 @@ class Bot(commands.Bot):
         es_admin_o_mod = ctx.author.is_mod or ctx.author.name.lower() == CANAL.lower()
         customs = ", ".join([f"!{c}" for c in self.comandos_custom.keys()])
         custom_txt = f" | 📌 Custom: {customs}" if (es_admin_o_mod and customs) else ""
-        await ctx.send(f"🤖 IA: !ia | 🕹️ Arcade: !pelea @user, !invasion, !3enraya, !ahorcado | 🎲 Extras: !festero, !amor, !ruleta{custom_txt}")
+        await ctx.send(f"🤖 Habla conmigo usando @{CANAL} | 🕹️ Arcade: !pelea @user, !invasion, !3enraya, !ahorcado | 🎲 Extras: !festero, !amor, !ruleta{custom_txt}")
 
     @commands.command(name='normas')
     async def cmd_normas(self, ctx: commands.Context):
@@ -337,31 +363,6 @@ class Bot(commands.Bot):
     @commands.command(name='prime')
     async def cmd_prime(self, ctx: commands.Context):
         await ctx.send("🔔 ¡Apoya con Amazon Prime! Consigue insignias y emotes exclusivos.")
-
-    @commands.command(name='ia', aliases=['hola', 'chat'])
-    async def ia_command(self, ctx: commands.Context):
-        if not ai_client: return await ctx.send(f"@{ctx.author.name} Falta configurar la API key de Gemini.")
-        content_parts = ctx.message.content.split(' ', 1)
-        prompt_usuario = content_parts[1] if len(content_parts) > 1 else "¡Hola tío!"
-        try:
-            contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
-            prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{ctx.author.name} te dice: '{prompt_usuario}'. Resóndele de forma natural."
-            response = ai_client.models.generate_content(
-                model='gemini-3.5-flash',
-                contents=prompt_final,
-                config={
-                    'system_instruction': (
-                        f"Eres una persona real, un colega más y viewer habitual en el canal de Twitch de {CANAL}. "
-                        "Hablas de tú, con total naturalidad, jerga coloquial de España (tío, mola, brutal, crack, etc.). "
-                        "PROHIBIDO sonar como asistente o bot. Breve y directo (máx 250 caracteres)."
-                    ),
-                }
-            )
-            texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Totalmente de acuerdo. 🔥"
-            await ctx.send(f"@{ctx.author.name} {texto_respuesta.strip()[:350]}")
-        except Exception as e:
-            print(f"[ERROR GEMINI] {e}")
-            await ctx.send(f"@{ctx.author.name} ¡Vaya temazo está sonando! 🎧🔥")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
