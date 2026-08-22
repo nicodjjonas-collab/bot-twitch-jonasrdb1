@@ -36,12 +36,15 @@ class Bot(commands.Bot):
         )
         self.ultimo_mensaje = time.time()
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
-        self.ultimos_mensajes_chat = []  
+        self.ultimos_mensajes_chat = []
+        
+        # Control de usuarios que ya han hablado para saludar a los nuevos
+        self.usuarios_saludados = set()
         
         self.archivo_comandos = "comandos_custom.json"
         self.comandos_custom = self.cargar_comandos_custom()
 
-        # Minijuegos clásicos y arcade
+        # Minijuegos y Arcade
         self.ahorcado_activo = False
         self.ahorcado_palabra = ""
         self.ahorcado_adivinadas = set()
@@ -67,6 +70,13 @@ class Bot(commands.Bot):
                 f.write(texto)
         except Exception as e:
             print(f"Error al escribir estado_juego.txt: {e}")
+
+    def guardar_peticion_obs(self, usuario, cancion):
+        try:
+            with open("peticiones.txt", "a", encoding="utf-8") as f:
+                f.write(f"@{usuario} pidió: {cancion}\n")
+        except Exception as e:
+            print(f"Error al guardar peticiones.txt: {e}")
 
     def cargar_comandos_custom(self):
         if os.path.exists(self.archivo_comandos):
@@ -99,8 +109,15 @@ class Bot(commands.Bot):
             return
 
         self.ultimo_mensaje = time.time()
-        
-        self.ultimos_mensajes_chat.append(f"{message.author.name}: {message.content}")
+        autor = message.author.name
+
+        # === NUEVO: BIENVENIDA AUTOMÁTICA A NUEVOS ESPECTADORES ===
+        if autor.lower() not in self.usuarios_saludados and autor.lower() != CANAL.lower():
+            self.usuarios_saludados.add(autor.lower())
+            # Saludo acogedor para que se sientan a gusto desde el primer momento
+            await message.channel.send(f"¡Bienvenido al chat de las Sesiones Old School, @{autor}! Pásatelo en grande, pilla sitio y a disfrutar del buen Remember. 🎧🔥")
+
+        self.ultimos_mensajes_chat.append(f"{autor}: {message.content}")
         if len(self.ultimos_mensajes_chat) > 15:
             self.ultimos_mensajes_chat.pop(0)
 
@@ -116,11 +133,10 @@ class Bot(commands.Bot):
                         prompt_usuario = "¡Hola tío!"
                         
                     contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
-                    prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{message.author.name} te menciona diciendo: '{prompt_usuario}'. Resóndele de forma natural."
+                    prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{autor} te menciona diciendo: '{prompt_usuario}'. Resóndele de forma natural."
                     
                     print(f"[DEBUG GEMINI] Enviando chat a Gemini: {prompt_usuario}")
                     
-                    # Corrección: Uso de chat sessions recomendado por la SDK oficial
                     chat_session = ai_client.chats.create(
                         model='gemini-2.5-flash',
                         config={
@@ -135,14 +151,15 @@ class Bot(commands.Bot):
                     
                     texto_respuesta = response.text if response and response.text else "¡Qué pasa tío! Totalmente de acuerdo. 🔥"
                     print(f"[DEBUG GEMINI] Respuesta recibida: {texto_respuesta}")
-                    await message.channel.send(f"@{message.author.name} {texto_respuesta.strip()[:350]}")
+                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:350]}")
                     
                 except Exception as e:
-                    print(f"[ERROR CRÍTICO GEMINI MENCION]: {e}")
-                    await message.channel.send(f"@{message.author.name} ¡Vaya temazo está sonando! 🎧🔥")
+                    print(f"[ERROR CRÍTICO GEMINI MENCION DETALLADO]: {type(e).__name__} -> {e}")
+                    traceback.print_exc()
+                    await message.channel.send(f"@{autor} ¡Vaya temazo está sonando! 🎧🔥")
             else:
                 print("[AVISO] Alguien mencionó al bot pero ai_client es None (falta clave de Gemini).")
-                await message.channel.send(f"@{message.author.name} ¡Ey! (La IA está desconectada ahora mismo)")
+                await message.channel.send(f"@{autor} ¡Ey! (La IA está desconectada)")
 
         # Comprobar comandos custom
         if content.startswith('!'):
@@ -181,11 +198,21 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # ==================== COMANDOS GENERALES ====================
+    # ==================== COMANDOS NUEVOS Y COMUNIDAD ====================
+
+    @commands.command(name='pedir')
+    async def cmd_pedir(self, ctx: commands.Context):
+        msg = ctx.message.content.split(' ', 1)
+        if len(msg) < 2:
+            return await ctx.send(f"@{ctx.author.name} Indica el tema que quieres. Uso: `!pedir [Artista - Canción]`")
+        
+        peticion = msg[1]
+        self.guardar_peticion_obs(ctx.author.name, peticion)
+        await ctx.send(f"🎵 ¡Apuntada tu petición, @{ctx.author.name}! '{peticion}' guardada para la sesión. 🔥")
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send(f"🤖 Habla conmigo usando @{BOT_NICK} | 🕹️ Arcade: !pelea @user, !invasion, !3enraya, !ahorcado | 🎲 Extras: !festero, !amor, !ruleta")
+        await ctx.send(f"🤖 Habla con la IA usando @{BOT_NICK} | 🎵 Música: !pedir [tema] | 🕹️ Arcade: !pelea @user, !invasion, !3enraya, !ahorcado | 🎲 Extras: !festero, !amor")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
