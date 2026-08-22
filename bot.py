@@ -38,7 +38,7 @@ class Bot(commands.Bot):
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.ultimos_mensajes_chat = []
         
-        # Control de usuarios que ya han hablado para saludar a los nuevos
+        # Control de usuarios para dar la bienvenida a los nuevos
         self.usuarios_saludados = set()
         
         self.archivo_comandos = "comandos_custom.json"
@@ -111,10 +111,9 @@ class Bot(commands.Bot):
         self.ultimo_mensaje = time.time()
         autor = message.author.name
 
-        # === NUEVO: BIENVENIDA AUTOMÁTICA A NUEVOS ESPECTADORES ===
+        # Saludo automático a nuevos espectadores
         if autor.lower() not in self.usuarios_saludados and autor.lower() != CANAL.lower():
             self.usuarios_saludados.add(autor.lower())
-            # Saludo acogedor para que se sientan a gusto desde el primer momento
             await message.channel.send(f"¡Bienvenido al chat de las Sesiones Old School, @{autor}! Pásatelo en grande, pilla sitio y a disfrutar del buen Remember. 🎧🔥")
 
         self.ultimos_mensajes_chat.append(f"{autor}: {message.content}")
@@ -137,8 +136,9 @@ class Bot(commands.Bot):
                     
                     print(f"[DEBUG GEMINI] Enviando chat a Gemini: {prompt_usuario}")
                     
+                    # Actualizado al modelo correcto solicitado por la API
                     chat_session = ai_client.chats.create(
-                        model='gemini-2.5-flash',
+                        model='gemini-3.6-flash',
                         config={
                             'system_instruction': (
                                 f"Eres una persona real, un colega más y viewer habitual en el canal de Twitch de {CANAL}. "
@@ -184,7 +184,7 @@ class Bot(commands.Bot):
                     if canal_obj:
                         if ai_client:
                             chat_session = ai_client.chats.create(
-                                model='gemini-2.5-flash',
+                                model='gemini-3.6-flash',
                                 config={
                                     'system_instruction': "Eres un colega más en el chat de Twitch. Escribe corto, súper natural, como si estuvieras viendo el directo desde el sofá.",
                                 }
@@ -198,7 +198,7 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # ==================== COMANDOS NUEVOS Y COMUNIDAD ====================
+    # ==================== COMANDOS ====================
 
     @commands.command(name='pedir')
     async def cmd_pedir(self, ctx: commands.Context):
