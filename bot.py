@@ -84,8 +84,7 @@ class Bot(commands.Bot):
         ]
 
     def canal_esta_activo(self, canal_nombre: str) -> bool:
-        tiempo_transcurrido = time.time() - self.ultimos_mensajes_canal.get(canal_nombre, 0)
-        return tiempo_transcurrido < 1500 # 25 minutos
+        return True # Forzamos True para que la IA responda siempre sin bloqueos de inactividad
 
     def obtener_archivo_puntos(self, canal):
         return f"puntos_liga_{canal.lower()}.json"
@@ -210,42 +209,48 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (QWEN)
+        # INTELIGENCIA ARTIFICIAL (QWEN) - ACTIVACIÓN FLEXIBLE
         # ==========================================
-        if BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower or "sesiones" in content_lower:
-            if not self.canal_esta_activo(canal_nombre):
-                return
+        # Responde si lo mencionan, si escriben al bot, o aleatoriamente de vez en cuando (o siempre que hables con él)
+        debe_responder = (
+            BOT_NICK in content_lower or 
+            f"@{BOT_NICK}" in content_lower or 
+            "sesiones" in content_lower or 
+            not content.startswith('!') # Responde a cualquier mensaje que no sea un comando por defecto
+        )
 
-            if qwen_client:
-                try:
-                    prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
-                    if not prompt_usuario:
-                        prompt_usuario = "¡Hola máquina!"
-                        
-                    contexto_chat = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-6:])
+        # Si quieres que responda SOLO cuando le mencionen o digan "sesiones", cambia la condición de arriba. 
+        # De momento lo dejamos activo para cualquier mensaje que no sea comando para asegurar que conteste.
+        if qwen_client and not content.startswith('!'):
+            try:
+                prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
+                if not prompt_usuario:
+                    prompt_usuario = "¡Hola máquina!"
                     
-                    system_prompt = (
-                        f"Eres un colega más viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
-                        "Habla 100% en español de forma natural, callejera y cercana. Nunca digas que eres una inteligencia artificial o un bot. "
-                        "Opina de verdad sobre lo que te dicen y termina siempre con una pregunta corta para seguir la conversación. Máximo 140 caracteres."
-                    )
-                    
-                    response = qwen_client.chat.completions.create(
-                        model=QWEN_MODEL,
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": f"Historial reciente del chat: [{contexto_chat}]. El usuario {autor} te dice: '{prompt_usuario}'"}
-                        ],
-                        temperature=0.9,
-                        max_tokens=100
-                    )
-                    
-                    if response and response.choices:
-                        texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
-                        await message.channel.send(f"@{autor} {texto_respuesta[:180]}")
-                        return
-                except Exception as e:
-                    print(f"[ERROR LLAMADA QWEN]: {e}")
+                contexto_chat = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-6:])
+                
+                system_prompt = (
+                    f"Eres un colega más viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
+                    "Habla 100% en español de forma natural, callejera y cercana. Nunca digas que eres una inteligencia artificial o un bot. "
+                    "Opina de verdad sobre lo que te dicen y termina siempre con una pregunta corta para seguir la conversación. Máximo 140 caracteres."
+                )
+                
+                response = qwen_client.chat.completions.create(
+                    model=QWEN_MODEL,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Historial reciente del chat: [{contexto_chat}]. El usuario {autor} te dice: '{prompt_usuario}'"}
+                    ],
+                    temperature=0.9,
+                    max_tokens=100
+                )
+                
+                if response and response.choices:
+                    texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
+                    await message.channel.send(f"@{autor} {texto_respuesta[:180]}")
+                    return
+            except Exception as e:
+                print(f"[ERROR LLAMADA QWEN]: {e}")
 
         await self.handle_commands(message)
 
@@ -265,9 +270,6 @@ class Bot(commands.Bot):
             try:
                 await asyncio.sleep(180) 
                 for canal_nombre in CANALES:
-                    if not self.canal_esta_activo(canal_nombre):
-                        continue 
-
                     canal_obj = self.get_channel(canal_nombre)
                     if canal_obj:
                         if qwen_client:
@@ -281,7 +283,8 @@ class Bot(commands.Bot):
                                     max_tokens=80
                                 )
                                 msg = (response.choices[0].message.content if response and response.choices else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
-                            except Exception:
+                            except Exception as e:
+                                print(f"[ERROR BUCLE AUTONOMO]: {e}")
                                 msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
@@ -385,7 +388,7 @@ class Bot(commands.Bot):
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send("🤖 Comandos: !liga, !puntos, !ruleta, !ahorcado, !trivia, !vf, !pedir, !sala, ist festero")
+        await ctx.send("🤖 Comandos: !liga, !puntos, !ruleta, !ahorcado, !trivia, !vf, !pedir, !sala, !festero")
 
 async def main():
     if not TOKEN:
