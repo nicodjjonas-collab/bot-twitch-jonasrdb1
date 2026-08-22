@@ -198,7 +198,7 @@ class Bot(commands.Bot):
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta de golpe: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
-        # Mención a la IA (@sesionesoldschool) de forma humana y natural
+        # Mención a la IA (@sesionesoldschool) de forma 100% humana y callejera
         mencion_canal = f"@{BOT_NICK}".lower()
         if mencion_canal in content.lower():
             if ai_client:
@@ -214,19 +214,19 @@ class Bot(commands.Bot):
                         model='gemini-3.6-flash',
                         config={
                             'system_instruction': (
-                                f"Eres un colega y espectador más en el canal de Twitch de {canal_nombre}, especializado en música remember, hard dance, uplifting trance, eurodance y tech house. "
-                                "Hablas exclusivamente en español, de forma muy natural, coloquial y cercana (como un colega en un bar o en el chat). "
-                                "REGLAS ESTRICTAS: "
-                                "1. Nunca digas que eres una inteligencia artificial, un bot o un asistente. "
-                                "2. No uses frases formales ni de atención al cliente. "
-                                "3. Responde directo, sin rodeos y al grano (máximo 150 caracteres). "
-                                "4. Comenta sobre la música, los minijuegos o lo que te estén diciendo de forma fluida."
+                                f"Eres un colega más que está viendo el directo de música remember en el canal de Twitch de {canal_nombre}. "
+                                "Hablas exclusivamente en español, de forma muy natural, coloquial y callejera (como un amigo en el chat o en un bar). "
+                                "REGLAS DE ORO: "
+                                "1. Jamás digas que eres una inteligencia artificial, un bot, un modelo o un asistente. "
+                                "2. No uses fórmulas de atención al cliente ni discursos formales. "
+                                "3. Sé directo, breve y ve al grano (máximo 120 caracteres, como un mensaje rápido de Twitch). "
+                                "4. Opina sobre la música, el ambiente, el chat o vacila con buen rollo si te preguntan."
                             ),
                         }
                     )
                     response = chat_session.send_message(prompt_final)
                     texto_respuesta = response.text if response and response.text else "¡Totalmente de acuerdo tío! Menudo temarral."
-                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:200]}")
+                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:150]}")
                 except Exception as e:
                     print(f"[ERROR GEMINI]: {e}")
                     await message.channel.send(f"@{autor} ¡Totalmente, vaya temazo llevamos en cabina! 🔥")
@@ -260,7 +260,7 @@ class Bot(commands.Bot):
                                             f"Eres un colega más viendo el directo de música remember en el canal {canal_nombre} de Twitch. "
                                             "El chat lleva un rato callado. Suelta un comentario corto, súper natural y callejero sobre la sesión, "
                                             "el buen rollo o animando a usar !ruleta o !ahorcado. "
-                                            "Cero formalidades, máximo 120 caracteres."
+                                            "Cero formalidades, máximo 100 caracteres."
                                         ),
                                     }
                                 )
