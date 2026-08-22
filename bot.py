@@ -236,6 +236,7 @@ class Bot(commands.Bot):
                         contents=prompt_final,
                         config=types.GenerateContentConfig(
                             temperature=0.9,
+                            tools=[] # Evita la advertencia de function calling automático
                         ),
                     )
                     
@@ -278,7 +279,10 @@ class Bot(commands.Bot):
                                     response = ai_client.models.generate_content(
                                         model='gemini-2.0-flash',
                                         contents="Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres.",
-                                        config=types.GenerateContentConfig(temperature=0.9),
+                                        config=types.GenerateContentConfig(
+                                            temperature=0.9,
+                                            tools=[] # Evita la advertencia
+                                        ),
                                     )
                                     msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
                                 except Exception:
