@@ -84,7 +84,7 @@ class Bot(commands.Bot):
         ]
 
     def canal_esta_activo(self, canal_nombre: str) -> bool:
-        return True # Forzamos True para que la IA responda siempre sin bloqueos de inactividad
+        return True # Forzamos True para que la IA responda siempre sin bloqueos
 
     def obtener_archivo_puntos(self, canal):
         return f"puntos_liga_{canal.lower()}.json"
@@ -209,18 +209,8 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (QWEN) - ACTIVACIÓN FLEXIBLE
+        # INTELIGENCIA ARTIFICIAL (QWEN) - CON DEBUGS VISIBLES
         # ==========================================
-        # Responde si lo mencionan, si escriben al bot, o aleatoriamente de vez en cuando (o siempre que hables con él)
-        debe_responder = (
-            BOT_NICK in content_lower or 
-            f"@{BOT_NICK}" in content_lower or 
-            "sesiones" in content_lower or 
-            not content.startswith('!') # Responde a cualquier mensaje que no sea un comando por defecto
-        )
-
-        # Si quieres que responda SOLO cuando le mencionen o digan "sesiones", cambia la condición de arriba. 
-        # De momento lo dejamos activo para cualquier mensaje que no sea comando para asegurar que conteste.
         if qwen_client and not content.startswith('!'):
             try:
                 prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
@@ -229,6 +219,8 @@ class Bot(commands.Bot):
                     
                 contexto_chat = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-6:])
                 
+                print(f"[DEBUG QWEN] Intentando generar respuesta para: '{prompt_usuario}' con modelo {QWEN_MODEL}")
+
                 system_prompt = (
                     f"Eres un colega más viendo el directo de Twitch de música remember en el canal de {canal_nombre}. "
                     "Habla 100% en español de forma natural, callejera y cercana. Nunca digas que eres una inteligencia artificial o un bot. "
@@ -247,10 +239,11 @@ class Bot(commands.Bot):
                 
                 if response and response.choices:
                     texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
+                    print(f"[DEBUG QWEN] Respuesta generada con éxito: {texto_respuesta}")
                     await message.channel.send(f"@{autor} {texto_respuesta[:180]}")
                     return
             except Exception as e:
-                print(f"[ERROR LLAMADA QWEN]: {e}")
+                print(f"❌ [ERROR CRÍTICO LLAMADA QWEN]: {type(e).__name__} - {e}")
 
         await self.handle_commands(message)
 
