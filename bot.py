@@ -11,28 +11,25 @@ from openai import OpenAI
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
 
-# Leemos el canal principal de las variables de entorno o usamos una lista por defecto
 canal_env = os.environ.get('TWITCH_CANAL', 'jonasrdb').strip().lower()
 CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
-QWEN_KEY = os.environ.get('QWEN_API_KEY')
-QWEN_BASE_URL = os.environ.get('QWEN_BASE_URL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1')
-QWEN_MODEL = os.environ.get('QWEN_MODEL', 'qwen-max') 
+# Configuración de Ollama (por defecto local en el puerto 11434)
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434/v1')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3') # Puedes cambiarlo por qwen2.5, mistral, etc.
 
-print(f"[INIT] Arrancando bot completo con Qwen para los canales: {CANALES} (Bot nick: {BOT_NICK})")
+print(f"[INIT] Arrancando bot con Ollama ({OLLAMA_MODEL}) para los canales: {CANALES} (Bot nick: {BOT_NICK})")
 
-qwen_client = None
-if QWEN_KEY:
-    try:
-        qwen_client = OpenAI(
-            api_key=QWEN_KEY,
-            base_url=QWEN_BASE_URL
-        )
-        print("[INIT] ¡Qwen conectado correctamente!")
-    except Exception as e:
-        print(f"[INIT] Error crítico al iniciar cliente Qwen: {e}")
-else:
-    print("[INIT] AVISO: No se encontró QWEN_API_KEY en las variables de entorno.")
+# Ollama no requiere una API Key real, pero la librería OpenAI exige pasar un string no vacío
+try:
+    ollama_client = OpenAI(
+        api_key="ollama", 
+        base_url=OLLAMA_BASE_URL
+    )
+    print("[INIT] ¡Cliente de Ollama inicializado correctamente!")
+except Exception as e:
+    print(f"[INIT] Error al iniciar cliente Ollama: {e}")
+    ollama_client = None
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -82,9 +79,6 @@ class Bot(commands.Bot):
             {"pregunta": "El Trance es un género musical que se originó en los años 50.", "respuesta": "falso"},
             {"pregunta": "El vinilo sigue siendo un formato legendario muy valorado en las sesiones de música remember.", "respuesta": "verdadero"}
         ]
-
-    def canal_esta_activo(self, canal_nombre: str) -> bool:
-        return True
 
     def obtener_archivo_puntos(self, canal):
         return f"puntos_liga_{canal.lower()}.json"
@@ -181,10 +175,6 @@ class Bot(commands.Bot):
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"✅ ¡Correcto @{autor}! Era **{estado['vf_respuesta_correcta'].upper()}** (+30 pts). 🎉")
 
-        if estado["duelo_activo"]:
-            if content == "1": estado["votos_duelo"]["opcion1"] += 1
-            elif content == "2": estado["votos_duelo"]["opcion2"] += 1
-
         if estado["ahorcado_activo"]:
             if len(content_lower) == 1 and content_lower.isalpha():
                 if content_lower in estado["palabra_secreta"]:
@@ -209,23 +199,21 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (QWEN) - ACTIVACIÓN FORZADA
+        # INTELIGENCIA ARTIFICIAL (OLLAMA)
         # ==========================================
         es_mencion_bot = BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower or "hola" in content_lower
         
-        if qwen_client and es_mencion_bot and not content.startswith('!'):
-            print(f"🔥 [EVENTO] Mensaje detectado para la IA de {autor}: '{content}'")
+        if ollama_client and es_mencion_bot and not content.startswith('!'):
+            print(f"🔥 [EVENTO OLLAMA] Mensaje detectado de {autor}: '{content}'")
             try:
                 prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
                 if not prompt_usuario:
                     prompt_usuario = "¡Hola máquina!"
                 
-                print(f"[DEBUG QWEN] Enviando petición a DashScope...")
-                
-                response = qwen_client.chat.completions.create(
-                    model=QWEN_MODEL,
+                response = ollama_client.chat.completions.create(
+                    model=OLLAMA_MODEL,
                     messages=[
-                        {"role": "system", "content": f"Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana y callejera. Máximo 140 caracteres."},
+                        {"role": "system", "content": "Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana, natural y callejera. Máximo 140 caracteres."},
                         {"role": "user", "content": f"El usuario {autor} dice: '{prompt_usuario}'"}
                     ],
                     temperature=0.9,
@@ -234,13 +222,11 @@ class Bot(commands.Bot):
                 
                 if response and response.choices:
                     texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
-                    print(f"✅ [ÉXITO QWEN] Respuesta: {texto_respuesta}")
+                    print(f"✅ [ÉXITO OLLAMA] Respuesta: {texto_respuesta}")
                     await message.channel.send(f"@{autor} {texto_respuesta}")
                     return
-                else:
-                    print("⚠️ [AVISO QWEN] La respuesta llegó vacía.")
             except Exception as e:
-                print(f"❌ [ERROR CRÍTICO QWEN]: {type(e).__name__} - {e}")
+                print(f"❌ [ERROR CRÍTICO OLLAMA]: {type(e).__name__} - {e}")
 
         await self.handle_commands(message)
 
@@ -262,10 +248,10 @@ class Bot(commands.Bot):
                 for canal_nombre in CANALES:
                     canal_obj = self.get_channel(canal_nombre)
                     if canal_obj:
-                        if qwen_client:
+                        if ollama_client:
                             try:
-                                response = qwen_client.chat.completions.create(
-                                    model=QWEN_MODEL,
+                                response = ollama_client.chat.completions.create(
+                                    model=OLLAMA_MODEL,
                                     messages=[
                                         {"role": "system", "content": "Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres."}
                                     ],
@@ -274,7 +260,7 @@ class Bot(commands.Bot):
                                 )
                                 msg = (response.choices[0].message.content if response and response.choices else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
                             except Exception as e:
-                                print(f"[ERROR BUCLE AUTONOMO]: {e}")
+                                print(f"[ERROR BUCLE AUTONOMO OLLAMA]: {e}")
                                 msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
