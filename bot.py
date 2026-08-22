@@ -16,12 +16,11 @@ CANALES = ['jonasrdb', 'koko_deejay']
 
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
-print(f"[INIT] Arrancando bot con Liga Mensual, Premio de Sesión y Gemini para: {CANALES}")
+print(f"[INIT] Arrancando bot completo con Liga, Juegos, IA y Comandos para: {CANALES}")
 
 ai_client = None
 if GEMINI_KEY:
     try:
-        # Inicialización explícita pasando la clave para evitar fallos en entornos como Railway
         ai_client = genai.Client(api_key=GEMINI_KEY)
         print("[INIT] ¡Gemini conectado y listo!")
     except Exception as e:
@@ -112,7 +111,7 @@ class Bot(commands.Bot):
             print(f"Error al guardar peticiones_{canal}.txt: {e}")
 
     async def event_ready(self):
-        print(f'=== ¡BOT LIGA MENSUAL CONECTADO EN: {CANALES} ===')
+        print(f'=== ¡BOT COMPLETO CONECTADO EN: {CANALES} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
         asyncio.create_task(self.bucle_repartir_puntos_actividad())
 
@@ -142,12 +141,12 @@ class Bot(commands.Bot):
         if canal_nombre not in self.usuarios_saludados:
             self.usuarios_saludados[canal_nombre] = set()
 
-        # RECOMPENSA POR MENSAJE (Premia el chatear activamente)
+        # RECOMPENSA DE PUNTOS POR CHATEAR
         puntos_canal = self.cargar_puntos_canal(canal_nombre)
         if autor_lower not in puntos_canal:
             puntos_canal[autor_lower] = 10
         else:
-            puntos_canal[autor_lower] += 3  # Puntos por cada mensaje enviado
+            puntos_canal[autor_lower] += 3
         self.guardar_puntos_canal(canal_nombre, puntos_canal)
 
         if autor_lower not in self.usuarios_saludados[canal_nombre] and autor_lower != canal_nombre:
@@ -233,7 +232,7 @@ class Bot(commands.Bot):
                     )
                     
                     response = ai_client.models.generate_content(
-                        model='gemini-2.5-flash',
+                        model='gemini-2.0-flash',
                         contents=prompt_final,
                         config=types.GenerateContentConfig(
                             temperature=0.9,
@@ -257,12 +256,12 @@ class Bot(commands.Bot):
 
     async def bucle_repartir_puntos_actividad(self):
         while True:
-            await asyncio.sleep(300) # Cada 5 minutos premia el tiempo en directo
+            await asyncio.sleep(300) # Cada 5 minutos reparte puntos a los activos
             for canal in CANALES:
                 puntos_canal = self.cargar_puntos_canal(canal)
                 if puntos_canal:
                     for usr in puntos_canal:
-                        puntos_canal[usr] += 15 # Puntos extra por estar en el stream
+                        puntos_canal[usr] += 15
                     self.guardar_puntos_canal(canal, puntos_canal)
 
     async def bucle_autonomo_chat(self):
@@ -277,7 +276,7 @@ class Bot(commands.Bot):
                             if ai_client:
                                 try:
                                     response = ai_client.models.generate_content(
-                                        model='gemini-2.5-flash',
+                                        model='gemini-2.0-flash',
                                         contents="Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres.",
                                         config=types.GenerateContentConfig(temperature=0.9),
                                     )
@@ -457,7 +456,7 @@ class Bot(commands.Bot):
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send(f"🤖 IA: @{BOT_NICK} | 🏆 Liga: !liga, !puntos, !premio | 🎮 Juegos: !ruleta, !ahorcado, !trivia, !vf, !duelo | 🎵 Música: !pedir, !sala, !festero")
+        await ctx.send(f"🤖 IA: @{BOT_NICK} | 🏆 Liga: !liga, !puntos, !premio | 🎮 Juegos: !ruleta, !ahorcado, !trivia, !vf, !duelo | 🎵 Música: !pedir, !sala, !festero, !normas, !suscribete, !redes")
 
 async def main():
     if not TOKEN:
