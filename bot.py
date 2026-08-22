@@ -14,7 +14,7 @@ CANAL = os.environ.get('TWITCH_CANAL', 'jonasRdb').lower()
 
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
-print(f"[INIT] Arrancando bot pro con Liga de Fieles para: {CANAL}")
+print(f"[INIT] Arrancando bot humano y pro para: {CANAL}")
 
 ai_client = None
 if GEMINI_KEY:
@@ -102,7 +102,7 @@ class Bot(commands.Bot):
             print(f"Error al guardar {archivo}: {e}")
 
     async def event_ready(self):
-        print(f'=== ¡BOT PRO CON LIGA DE FIELES CONECTADO: {CANAL} ===')
+        print(f'=== ¡BOT HUMANO CONECTADO EN EL CANAL: {CANAL} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
         asyncio.create_task(self.bucle_repartir_puntos())
 
@@ -119,17 +119,17 @@ class Bot(commands.Bot):
         autor = message.author.name
         autor_lower = autor.lower()
 
-        # Inicializar puntos y sumar por actividad en el chat (cada mensaje suma 2 puntos para la Liga)
+        # Inicializar puntos y sumar por actividad en el chat
         if autor_lower not in self.puntos:
             self.puntos[autor_lower] = 50
         else:
             self.puntos[autor_lower] += 2
         self.guardar_json(self.archivo_puntos, self.puntos)
 
-        # Saludo automático a nuevos espectadores
+        # Saludo automático a nuevos espectadores de forma natural
         if autor_lower not in self.usuarios_saludados and autor_lower != CANAL.lower():
             self.usuarios_saludados.add(autor_lower)
-            await message.channel.send(f"¡Bienvenido al chat, @{autor}! Estás participando en la Liga de Fieles mensual. ¡Comenta y gana una sesión exclusiva! 🎧🔥")
+            await message.channel.send(f"¡Qué pasa @{autor}! Pilla sitio por aquí, disfruta de la sesión de remember y a darle caña al chat. 🎧")
 
         self.ultimos_mensajes_chat.append(f"{autor}: {message.content}")
         if len(self.ultimos_mensajes_chat) > 15:
@@ -141,9 +141,9 @@ class Bot(commands.Bot):
         if self.trivia_activa:
             if content.lower() == self.trivia_respuesta_correcta.lower():
                 self.trivia_activa = False
-                self.puntos[autor_lower] += 50 # Bonus extra para la liga
+                self.puntos[autor_lower] += 50 
                 self.guardar_json(self.archivo_puntos, self.puntos)
-                await message.channel.send(f"🏆 ¡Correcto, @{autor}! Acertaste la trivia y sumas +50 puntos extra para la Liga de Fieles. 🎉")
+                await message.channel.send(f"¡Buena, @{autor}! Has clavado la respuesta y te llevas 50 puntos para la liga. 🎯")
 
         # Comprobar votos de Duelo
         if self.duelo_activo:
@@ -152,33 +152,38 @@ class Bot(commands.Bot):
             elif content == "2":
                 self.votos_duelo["opcion2"] += 1
 
-        # Mención a la IA (@sesionesoldschool)
+        # Mención a la IA (@sesionesoldschool) de forma super natural
         mencion_canal = f"@{BOT_NICK}".lower()
         if mencion_canal in content.lower():
             if ai_client:
                 try:
                     prompt_usuario = content.lower().replace(mencion_canal, "").strip()
                     if not prompt_usuario:
-                        prompt_usuario = "¡Hola máquina!"
+                        prompt_usuario = "¡Hola!"
                         
                     contexto_actual = " | ".join(self.ultimos_mensajes_chat[-8:])
-                    prompt_final = f"Historial del chat: [{contexto_actual}]\n\n{autor} te menciona: '{prompt_usuario}'. Resóndele como colega del canal."
+                    prompt_final = f"Historial reciente del chat: [{contexto_actual}]\n\n{autor} te dice: '{prompt_usuario}'. Respóndele como un colega más que está viendo el directo."
                     
                     chat_session = ai_client.chats.create(
                         model='gemini-3.6-flash',
                         config={
                             'system_instruction': (
-                                f"Eres un colega y viewer habitual en el canal de Twitch de {CANAL} centrado en música Remember y Hard Dance. "
-                                "Hablas con jerga coloquial española, natural, cercano. Breve (máx 250 caracteres)."
+                                f"Eres un espectador más y colega en el canal de Twitch de {CANAL}, que emite música remember y hard dance. "
+                                "Hablas exclusivamente en español, de forma muy natural, coloquial y cercana (como un colega en un bar o en el chat). "
+                                "REGLAS ESTRICTAS: "
+                                "1. Nunca digas que eres una inteligencia artificial, un bot o un asistente. "
+                                "2. No uses frases formales ni de atención al cliente. "
+                                "3. Responde directo y al grano (máximo 150 caracteres). "
+                                "4. Comenta sobre la música, el ambiente o lo que te estén diciendo de forma fluida."
                             ),
                         }
                     )
                     response = chat_session.send_message(prompt_final)
-                    texto_respuesta = response.text if response and response.text else "¡Totalmente de acuerdo tío! 🔥"
-                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:350]}")
+                    texto_respuesta = response.text if response and response.text else "¡Totalmente de acuerdo tío! Menudo temarral."
+                    await message.channel.send(f"@{autor} {texto_respuesta.strip()[:200]}")
                 except Exception as e:
                     print(f"[ERROR GEMINI]: {e}")
-                    await message.channel.send(f"@{autor} ¡Menudo temarral tenemos en cabina! 🎧")
+                    await message.channel.send(f"@{autor} ¡Totalmente, vaya temazo llevamos en cabina! 🔥")
 
         # Comandos Custom
         if content.startswith('!'):
@@ -192,17 +197,17 @@ class Bot(commands.Bot):
 
     async def bucle_repartir_puntos(self):
         while True:
-            await asyncio.sleep(300) # Cada 5 minutos de visualización suma puntos pasivos
+            await asyncio.sleep(300) 
             if self.puntos:
                 for usr in self.puntos:
                     self.puntos[usr] += 10
                 self.guardar_json(self.archivo_puntos, self.puntos)
 
     async def bucle_autonomo_chat(self):
-        await asyncio.sleep(25)
+        await asyncio.sleep(30)
         while True:
             try:
-                await asyncio.sleep(150)
+                await asyncio.sleep(180) # Cada 3 minutos de silencio interviene orgánicamente
                 if time.time() - self.ultimo_mensaje > 200:
                     canal_obj = self.get_channel(CANAL)
                     if canal_obj:
@@ -210,14 +215,19 @@ class Bot(commands.Bot):
                             chat_session = ai_client.chats.create(
                                 model='gemini-3.6-flash',
                                 config={
-                                    'system_instruction': "Eres un colega más en el chat de Twitch de música remember. Escribe corto, natural, comentando la sesión y recordando la liga de fieles.",
+                                    'system_instruction': (
+                                        "Eres un colega más viendo el directo de música remember en Twitch. "
+                                        "El chat lleva un rato callado. Suelta un comentario corto, súper natural y callejero sobre la sesión, "
+                                        "el buen rollo o recordando que participen en la liga para llevarse la sesión de regalo a fin de mes. "
+                                        "Cero formalidades, máximo 120 caracteres."
+                                    ),
                                 }
                             )
-                            response = chat_session.send_message("Suelta un comentario recordando al chat que participen en la liga de fieles para ganar la sesión de regalo.")
-                            msg = (response.text if response and response.text else "¡Recordad que el que más participe se lleva la sesión de regalo a fin de mes!").replace('\n', ' ')
+                            response = chat_session.send_message("Suelta una frase corta para romper el hielo en el chat.")
+                            msg = (response.text if response and response.text else "¡Menuda sesión guapa nos estamos marcando hoy familia!").replace('\n', ' ')
                         else:
-                            msg = f"¡Recordad usar !liga para ver cómo va vuestra posición en la Liga de Fieles! {random.choice(self.emotes_twitch)}"
-                        await canal_obj.send(f"{msg} {random.choice(self.emotes_twitch)}")
+                            msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
+                        await canal_obj.send(f"{msg}")
                         self.ultimo_mensaje = time.time()
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
@@ -228,17 +238,16 @@ class Bot(commands.Bot):
     async def cmd_puntos(self, ctx: commands.Context):
         usr = ctx.author.name.lower()
         cant = self.puntos.get(usr, 50)
-        await ctx.send(f"⚡ @{ctx.author.name}, tienes **{cant} puntos** acumulados para la Liga de Fieles de este mes.")
+        await ctx.send(f"@{ctx.author.name}, vas con **{cant} puntos** acumulados en la liga de este mes. ¡A tope! ⚡")
 
     @commands.command(name='liga', aliases=['top', 'ranking'])
     async def cmd_liga(self, ctx: commands.Context):
         if not self.puntos:
-            return await ctx.send("🏆 La Liga de Fieles acaba de empezar. ¡Sé el primero en escribir en el chat!")
+            return await ctx.send("La liga acaba de empezar. ¡Escribe en el chat para pillar plaza!")
         
-        # Ordenar usuarios por puntos de mayor a menor
         ranking_ordenado = sorted(self.puntos.items(), key=lambda x: x[1], reverse=True)[:3]
         
-        texto_ranking = "🏆 **TOP 3 LIGA DE FIELES (¡Premio: Sesión exclusiva a fin de mes!):** "
+        texto_ranking = "🏆 Así va el Top 3 de la liga (¡el primero se lleva la sesión a fin de mes!): "
         for i, (usr, pts) in enumerate(ranking_ordenado, 1):
             medalla = "🥇" if i == 1 else ("🥈" if i == 2 else "🥉")
             texto_ranking += f"{medalla} @{usr} ({pts} pts)  "
@@ -248,33 +257,33 @@ class Bot(commands.Bot):
     @commands.command(name='resetliga')
     async def cmd_resetliga(self, ctx: commands.Context):
         if not ctx.author.is_mod and ctx.author.name.lower() != CANAL.lower():
-            return await ctx.send(f"@{ctx.author.name} Este comando es exclusivo para moderadores.")
+            return await ctx.send(f"@{ctx.author.name} Comando exclusivo para mods.")
         
         self.puntos = {}
         self.guardar_json(self.archivo_puntos, self.puntos)
-        await ctx.send("🔄 ¡Se ha reseteado la Liga de Fieles! Comienza un nuevo mes de acumulación de puntos. ¡A por la sesión de regalo! 🎁🔥")
+        await ctx.send("¡Liga reseteada! Arranca el contador del nuevo mes para llevarse la sesión de regalo. 🎁🔥")
 
     @commands.command(name='pedir')
     async def cmd_pedir(self, ctx: commands.Context):
         msg = ctx.message.content.split(' ', 1)
         if len(msg) < 2:
-            return await ctx.send(f"@{ctx.author.name} Indica el tema. Uso: `!pedir [Artista - Canción]`")
+            return await ctx.send(f"@{ctx.author.name} Pon el tema así: `!pedir [Artista - Canción]`")
         peticion = msg[1]
         self.guardar_peticion_obs(ctx.author.name, peticion)
-        await ctx.send(f"🎵 ¡Apuntada tu petición, @{ctx.author.name}! '{peticion}' guardada para la sesión. 🔥")
+        await ctx.send(f"¡Apuntado '{peticion}', @{ctx.author.name}! Guardado para la sesión. 🎵")
 
     @commands.command(name='ultimostemas', aliases=['historial'])
     async def cmd_ultimostemas(self, ctx: commands.Context):
         if not self.ultimos_temas:
-            await ctx.send("🎧 Todavía no hay historial de temas. ¡Usa `!añadirtema` si eres mod!")
+            await ctx.send("Aún no hay temas registrados en el historial.")
         else:
             lista = " | ".join(self.ultimos_temas[-3:])
-            await ctx.send(f"🎶 Últimos temazos sonando: {lista}")
+            await ctx.send(f"🎶 Últimos sonando: {lista}")
 
     @commands.command(name='añadirtema')
     async def cmd_añadirtema(self, ctx: commands.Context):
         if not ctx.author.is_mod and ctx.author.name.lower() != CANAL.lower():
-            return await ctx.send(f"@{ctx.author.name} Comando exclusivo para moderadores.")
+            return await ctx.send("Solo mods.")
         msg = ctx.message.content.split(' ', 1)
         if len(msg) < 2:
             return await ctx.send("Uso: `!añadirtema [Artista - Título]`")
@@ -282,21 +291,21 @@ class Bot(commands.Bot):
         self.ultimos_temas.append(tema)
         if len(self.ultimos_temas) > 10:
             self.ultimos_temas.pop(0)
-        await ctx.send(f"✅ Tema añadido al historial: **{tema}** 🎛️")
+        await ctx.send(f"✅ Apuntado al historial: **{tema}**")
 
     @commands.command(name='trivia', aliases=['adivina'])
     async def cmd_trivia(self, ctx: commands.Context):
         if self.trivia_activa:
-            return await ctx.send("⚠️ ¡Ya hay una trivia activa!")
+            return await ctx.send("¡Ya hay una trivia en marcha!")
         pregunta_obj = random.choice(self.preguntas_trivia)
         self.trivia_activa = True
         self.trivia_respuesta_correcta = pregunta_obj["respuesta"]
-        await ctx.send(f"🧠 **TRIVIA REMEMBER:** {pregunta_obj['pregunta']} (¡Responde en el chat y gana puntos para la liga!)")
+        await ctx.send(f"🧠 **TRIVIA:** {pregunta_obj['pregunta']} (¡Responde en el chat y gana puntos!)")
 
     @commands.command(name='duelo')
     async def cmd_duelo(self, ctx: commands.Context):
         if self.duelo_activo:
-            return await ctx.send("⚠️ ¡Ya hay un duelo activo!")
+            return await ctx.send("¡Ya hay un duelo activo!")
         msg = ctx.message.content.split(' ', 1)
         if len(msg) < 2 or "|" not in msg[1]:
             return await ctx.send("Uso: `!duelo [Estilo 1] | [Estilo 2]`")
@@ -304,24 +313,24 @@ class Bot(commands.Bot):
         opt1, opt2 = partes[0].strip(), partes[1].strip()
         self.votos_duelo = {"opcion1": 0, "opcion2": 0}
         self.duelo_activo = True
-        await ctx.send(f"⚔️ **DUELO DE ESTILOS:** Escribe **1** para [{opt1}] o **2** para [{opt2}]. ¡30 segundos!")
+        await ctx.send(f"⚔️ **DUELO:** Escribe **1** para [{opt1}] o **2** para [{opt2}]. ¡30 segundos!")
         await asyncio.sleep(30)
         self.duelo_activo = False
         v1, v2 = self.votos_duelo["opcion1"], self.votos_duelo["opcion2"]
         ganador = opt1 if v1 > v2 else (opt2 if v2 > v1 else "¡Empate!")
-        await ctx.send(f"🏁 **RESULTADO:** [{opt1}: {v1}] vs [{opt2}: {v2}] ➔ Gana: **{ganador}**! 🔥")
+        await ctx.send(f"🏁 Resultado del duelo: **{ganador}** se lleva la victoria. 🔥")
 
     @commands.command(name='sala', aliases=['nostalgia', 'ruta'])
     async def cmd_sala(self, ctx: commands.Context):
-        await ctx.send(f"🏛️ **MEMORIA CLUBBER:** {random.choice(self.salas_historias)}")
+        await ctx.send(f"🏛️ {random.choice(self.salas_historias)}")
 
     @commands.command(name='comandos')
     async def cmd_list(self, ctx: commands.Context):
-        await ctx.send(f"🤖 IA: @{BOT_NICK} | 🏆 Liga: !liga, !puntos | 🎵 Música: !pedir | 🕹️ Juegos: !trivia, !duelo, !sala")
+        await ctx.send(f"🤖 Habla con @{BOT_NICK} | 🏆 Liga: !liga, !puntos | 🎵 Música: !pedir, !ultimostemas | 🕹️ Juegos: !trivia, !duelo, !sala")
 
     @commands.command(name='festero')
     async def festero(self, ctx: commands.Context):
-        await ctx.send(f"🎉 @{ctx.author.name} tiene un {random.randint(0,100)}% de energía festera hoy. 🔥")
+        await ctx.send(f"@{ctx.author.name} tiene hoy un {random.randint(0,100)}% de energía festera. 🎉")
 
 async def main():
     if not TOKEN:
