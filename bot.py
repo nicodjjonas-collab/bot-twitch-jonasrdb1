@@ -14,7 +14,7 @@ TWITCH_CHANNEL = os.environ.get("CHANNEL")
 if not GEMINI_API_KEY:
     print("⚠️ [ADVERTENCIA]: Falta la variable GEMINI_API_KEY.")
 if not TWITCH_TOKEN or not TWITCH_CHANNEL:
-    print("❌ [ERROR CRíTICO]: Faltan TMI_TOKEN o CHANNEL en las variables de entorno.")
+    print("❌ [ERROR CRÍTICO]: Faltan TMI_TOKEN o CHANNEL en las variables de entorno.")
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
@@ -63,8 +63,11 @@ class Bot(commands.Bot):
         print(f"channels: {self.initial_channels}")
 
     async def event_message(self, message):
-        if message.echo:
+        # Si el mensaje viene del propio bot, lo ignoramos para evitar bucles infinitos
+        if message.author and message.author.name.lower() == self.nick.lower():
             return
+
+        print(f"💬 [MENSAJE CAPTURADO] De {message.author.name if message.author else 'Desconocido'}: {message.content}")
 
         await self.handle_commands(message)
 
@@ -74,7 +77,7 @@ class Bot(commands.Bot):
         if contenido.startswith("!"):
             return
 
-        print(f"💬 Mensaje recibido de {autor}: {contenido}")
+        # Llamamos a la IA para que responda a cualquier usuario que hable en el chat
         respuesta_ia = responder_con_ia(contenido, autor)
         
         if respuesta_ia:
@@ -138,8 +141,7 @@ if __name__ == "__main__":
         bot = Bot()
         bot.run()
     else:
-        print("⚠️ [AVISO]: El bot de Twitch está desactivado por falta de variables, pero el servidor web sigue activo.")
-        # Mantiene el contenedor vivo para que puedas revisar las variables en Railway sin que crashee en bucle
+        print("⚠️ [AVISO]: El bot de Twitch está desactivado por falta de variables.")
         import time
         while True:
             time.sleep(3600)
