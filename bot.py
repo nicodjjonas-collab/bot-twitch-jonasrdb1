@@ -1,10 +1,9 @@
 import os
 import random
 import time
-import json
 import asyncio
 import traceback
-import twitchio
+import json
 from twitchio.ext import commands
 from openai import OpenAI
 
@@ -17,7 +16,7 @@ CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_e
 # Configuración de DeepSeek API
 DEEPSEEK_KEY = os.environ.get('DEEPSEEK_API_KEY')
 DEEPSEEK_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
-DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat') # O deepseek-reasoner si prefieres
+DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat')
 
 print(f"[INIT] Arrancando bot con DeepSeek para los canales: {CANALES} (Bot nick: {BOT_NICK})")
 
@@ -204,12 +203,17 @@ class Bot(commands.Bot):
         # ==========================================
         # INTELIGENCIA ARTIFICIAL (DEEPSEEK)
         # ==========================================
-        es_mencion_bot = BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower or "hola" in content_lower
-        
-        if deepseek_client and es_mencion_bot and not content.startswith('!'):
+        menciona_al_bot = BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower
+        dice_hola = "hola" in content_lower
+
+        if deepseek_client and (menciona_al_bot or dice_hola) and not content.startswith('!'):
             print(f"🔥 [EVENTO DEEPSEEK] Mensaje detectado de {autor}: '{content}'")
             try:
-                prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
+                prompt_usuario = content_lower
+                for nick in [f"@{BOT_NICK}", BOT_NICK]:
+                    prompt_usuario = prompt_usuario.replace(nick, "")
+                prompt_usuario = prompt_usuario.strip()
+                
                 if not prompt_usuario:
                     prompt_usuario = "¡Hola máquina!"
                 
