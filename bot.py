@@ -84,7 +84,7 @@ class Bot(commands.Bot):
         """Comando para destacar el track actual"""
         frases_temazo = [
             f"@{ctx.author.name} ¡MENUDO HIMNO DE LA RUTA! 🎹🔥 ¡A bailar se ha dicho!",
-            f"@{ctx.author.name} Subiendo lossub-bajos al 200%! Esto es Remember del bueno. 🎧✨",
+            f"@{ctx.author.name} Subiendo los sub-bajos al 200%! Esto es Remember del bueno. 🎧✨",
             f"@{ctx.author.name} ¡Vaya melodía épica! Las manos arriba todo el mundo. 🙌🚀"
         ]
         await ctx.send(random.choice(frases_temazo))
@@ -121,8 +121,9 @@ class Bot(commands.Bot):
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
+        self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(b"Bot de Twitch Remember con IA y Minijuegos activo! 🎧")
+        self.wfile.write("Bot de Twitch Remember con IA y Minijuegos activo! 🎧".encode("utf-8"))
 
 def run_http_server():
     port = int(os.environ.get("PORT", 8080))
