@@ -8,8 +8,6 @@ import http.server
 import socketserver
 import threading
 from twitchio.ext import commands
-from google import genai
-from google.genai import types
 
 # ==========================================
 # 1. SERVIDOR HTTP OBLIGATORIO PARA RAILWAY
@@ -37,7 +35,7 @@ hilo_web = threading.Thread(target=iniciar_web, daemon=True)
 hilo_web.start()
 
 # ==========================================
-# 2. CONFIGURACIÓN DEL BOT Y GEMINI
+# 2. CONFIGURACIÓN DEL BOT
 # ==========================================
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
@@ -45,20 +43,7 @@ BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower()
 canal_env = os.environ.get('TWITCH_CANAL', 'jonasRDB').strip().lower()
 CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
-GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
-
 print(f"[INIT] Arrancando bot para los canales: {CANALES} (Bot nick: {BOT_NICK})")
-
-gemini_client = None
-if GEMINI_KEY:
-    try:
-        gemini_client = genai.Client(api_key=GEMINI_KEY)
-        print("[INIT] ¡Cliente de Google Gemini conectado correctamente!")
-    except Exception as e:
-        print(f"[INIT] Error al iniciar cliente Gemini: {e}")
-else:
-    print("[INIT] AVISO: No se encontró GEMINI_API_KEY en las variables de entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -70,9 +55,6 @@ class Bot(commands.Bot):
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.juegos_estado = {}
         self.usuarios_saludados = {}
-        
-        # Historial temporal de conversación por usuario para dar naturalidad humana
-        self.historial_chats = {}
 
         for chan in CANALES:
             self.juegos_estado[chan] = {
@@ -211,55 +193,46 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL CONVERSACIONAL (GEMINI)
+        # CONVERSACIÓN HUMANA NATURAL Y FLUIDA
         # ==========================================
         if not content.startswith('!'):
-            texto_respuesta = ""
-            if gemini_client:
-                print(f"🔥 [CHAT IA] Mensaje de @{autor}: '{content}'")
-                try:
-                    # Mantenemos un hilo de contexto muy corto por usuario para que la charla sea fluida
-                    if autor_lower not in self.historial_chats:
-                        self.historial_chats[autor_lower] = []
-                    
-                    self.historial_chats[autor_lower].append(f"{autor}: {content}")
-                    # Guardamos solo los últimos 4 mensajes para agilizar
-                    if len(self.historial_chats[autor_lower]) > 4:
-                        self.historial_chats[autor_lower].pop(0)
+            # Limpiamos la mención al bot si viene incluida para leer solo lo que dice
+            texto_limpio = content_lower.replace(f"@{BOT_NICK}", "").strip()
+            
+            respuesta = ""
+            
+            if "hola" in texto_limpio or "que tal" in texto_limpio or "buenas" in texto_limpio:
+                respuesta = random.choice([
+                    "¡Qué pasa hermano! ¿Cómo va todo por ahí?",
+                    "¡Ey máquina! Pilla sitio que esto echa humo.",
+                    "¡Hola tío! Disfrutando de los vatios a tope."
+                ])
+            elif "como vas" in texto_limpio or "que tal estas" in texto_limpio:
+                respuesta = random.choice([
+                    "¡Pues por aquí a tope con los platos y los vinilos!",
+                    "¡Inmejorable tío, menuda sesión llevamos hoy!",
+                    "¡Gozándola con el buen sonido de los 90 y 2000!"
+                ])
+            elif "logan" in texto_limpio or "conocés" in texto_limpio or "conoces" in texto_limpio:
+                respuesta = random.choice([
+                    "¡Claro que conozco a logan_rdb! ¡Un crack de la vieja escuela!",
+                    "¡Hombre, logan_rdb es de los nuestros, de los que pisan fuerte el chat!"
+                ])
+            elif "temazo" in texto_limpio or "cancion" in texto_limpio or "musica" in texto_limpio:
+                respuesta = random.choice([
+                    "¡Totalmente! Este track tiene una energía brutal.",
+                    "¡Menudo subidón de tema, esto en directo suena increíble!",
+                    "¡La melodia de este track es legendaria tío!"
+                ])
+            else:
+                respuesta = random.choice([
+                    "¡Totalmente tío, menuda sesión nos estamos marcando hoy!",
+                    "¡Eso es así! El buen remember no se negocia.",
+                    "¡Jajaja tal cual, qué grandes sois familia!",
+                    "¡Brutal! A tope con los vatios y el buen rollo."
+                ])
 
-                    prompt_conversacion = (
-                        "Estás en un stream de Twitch de música remember (Hard Dance, Trance, Eurodance, Makina). "
-                        "Eres un espectador más, colega del streamer, charlando de forma totalmente natural, humana y espontánea en el chat. "
-                        "No uses frases formales ni de asistencia virtual. Responde de forma breve y directa (máximo 120 caracteres, sin saltos de línea).\n\n"
-                        f"Historial reciente:\n" + "\n".join(self.historial_chats[autor_lower])
-                    )
-
-                    response = gemini_client.models.generate_content(
-                        model=GEMINI_MODEL,
-                        contents=prompt_conversacion,
-                        config=types.GenerateContentConfig(
-                            temperature=0.85,
-                            max_output_tokens=60
-                        )
-                    )
-                    
-                    if response and response.text:
-                        texto_respuesta = response.text.strip().replace('\n', ' ')
-                        print(f"✅ [ÉXITO IA] Respuesta: {texto_respuesta}")
-                except Exception as e:
-                    print(f"❌ [ERROR IA]: {type(e).__name__} - {e}")
-                    traceback.print_exc()
-
-            # Si por algo la IA no devolviera texto, respondemos de forma natural según lo que dijo
-            if not texto_respuesta:
-                if "hola" in content_lower:
-                    texto_respuesta = "¡Qué tal máquina! ¿Cómo va todo por ahí?"
-                elif "como" in content_lower or "tal" in content_lower:
-                    texto_respuesta = "¡Por aquí a tope disfrutando de los vinilos y los vatios!"
-                else:
-                    texto_respuesta = "¡Totalmente tío, menuda sesión nos estamos marcando hoy!"
-
-            await message.channel.send(f"@{autor} {texto_respuesta}")
+            await message.channel.send(f"@{autor} {respuesta}")
             return
 
         await self.handle_commands(message)
@@ -282,24 +255,7 @@ class Bot(commands.Bot):
                 for canal_nombre in CANALES:
                     canal_obj = self.get_channel(canal_nombre)
                     if canal_obj:
-                        msg = ""
-                        if gemini_client:
-                            try:
-                                response = gemini_client.models.generate_content(
-                                    model=GEMINI_MODEL,
-                                    contents="Suelta una frase corta de colega animando el chat de un directo de música remember y haz una pregunta rápida sobre los temas.",
-                                    config=types.GenerateContentConfig(
-                                        temperature=0.9,
-                                        max_output_tokens=60
-                                    )
-                                )
-                                msg = (response.text if response and response.text else "").replace('\n', ' ')
-                            except Exception as e:
-                                print(f"Error IA autónoma: {e}")
-                        
-                        if not msg:
-                            msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
-
+                        msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
                         await canal_obj.send(f"{msg}")
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
