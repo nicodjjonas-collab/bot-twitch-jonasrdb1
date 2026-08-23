@@ -28,11 +28,14 @@ Responde siempre de forma natural, amigable y participativa a lo que digan en el
 
 def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
     if not gemini_client:
+        print("❌ [IA ERROR]: El cliente de Gemini no está inicializado (falta API Key).")
         return "¡A tope con la sesión! 🚀"
     try:
-        modelo_actual = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+        # Usamos un modelo estable y actual
+        modelo_actual = "gemini-2.5-flash"
         prompt_completo = f"{SYSTEM_PROMPT}\n\n{nombre_usuario} dice: {mensaje_usuario}"
         
+        print(f"🤖 [IA] Consultando a Gemini con el modelo {modelo_actual}...")
         respuesta = gemini_client.models.generate_content(
             model=modelo_actual,
             contents=prompt_completo
@@ -40,12 +43,15 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
         
         if respuesta and respuesta.text:
             texto_respuesta = respuesta.text.strip()
-            return " ".join(texto_respuesta.splitlines())
+            texto_limpio = " ".join(texto_respuesta.splitlines())
+            print(f"✅ [IA RESPUESTA GENERADA]: {texto_limpio}")
+            return texto_limpio
         
+        print("⚠️ [IA AVISO]: Gemini devolvió una respuesta vacía.")
         return "¡Qué pasa! ¡Menudo ambientazo tenemos por el chat! 🎧🔥"
         
     except Exception as e:
-        print(f"❌ [IA ERROR]: {e}")
+        print(f"❌ [IA EXCEPCIÓN CRÍTICA]: {e}")
         return "¡A tope con la sesión! 🚀"
 
 
@@ -63,7 +69,6 @@ class Bot(commands.Bot):
         print(f"channels: {self.initial_channels}")
 
     async def event_message(self, message):
-        # Evitamos que el bot se responda a sí mismo
         if message.author and message.author.name.lower() == self.nick.lower():
             return
 
