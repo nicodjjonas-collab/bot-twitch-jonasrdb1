@@ -8,6 +8,8 @@ import http.server
 import socketserver
 import threading
 from twitchio.ext import commands
+from google import genai
+from google.genai import types
 
 # ==========================================
 # 1. SERVIDOR HTTP OBLIGATORIO PARA RAILWAY
@@ -35,7 +37,7 @@ hilo_web = threading.Thread(target=iniciar_web, daemon=True)
 hilo_web.start()
 
 # ==========================================
-# 2. CONFIGURACIÓN DEL BOT
+# 2. CONFIGURACIÓN DEL BOT Y GEMINI
 # ==========================================
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
@@ -43,7 +45,20 @@ BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower()
 canal_env = os.environ.get('TWITCH_CANAL', 'jonasRDB').strip().lower()
 CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
+GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
+
 print(f"[INIT] Arrancando bot para los canales: {CANALES} (Bot nick: {BOT_NICK})")
+
+gemini_client = None
+if GEMINI_KEY:
+    try:
+        gemini_client = genai.Client(api_key=GEMINI_KEY)
+        print("[INIT] ¡Cliente de Google Gemini conectado correctamente!")
+    except Exception as e:
+        print(f"[INIT] Error al iniciar cliente Gemini: {e}")
+else:
+    print("[INIT] AVISO: No se encontró GEMINI_API_KEY en las variables de entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -55,6 +70,7 @@ class Bot(commands.Bot):
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.juegos_estado = {}
         self.usuarios_saludados = {}
+        self.chats_usuarios = {}
 
         for chan in CANALES:
             self.juegos_estado[chan] = {
@@ -146,6 +162,7 @@ class Bot(commands.Bot):
         if canal_nombre not in self.usuarios_saludados:
             self.usuarios_saludados[canal_nombre] = set()
 
+        # Sistema de puntos y bienvenida inicial
         puntos_canal = self.cargar_puntos_canal(canal_nombre)
         puntos_canal[autor_lower] = puntos_canal.get(autor_lower, 10) + 3
         self.guardar_puntos_canal(canal_nombre, puntos_canal)
@@ -158,11 +175,13 @@ class Bot(commands.Bot):
         content_lower = content.lower()
         estado = self.juegos_estado[canal_nombre]
 
+        # Comprobación de respuestas de minijuegos activos
         if estado["trivia_activa"] and content_lower == estado["trivia_respuesta_correcta"].lower():
             estado["trivia_activa"] = False
             puntos_canal[autor_lower] += 50 
             self.guardar_puntos_canal(canal_nombre, puntos_canal)
             await message.channel.send(f"¡Buena, @{autor}! Has clavado la trivia (+50 pts). 🎯")
+            return
 
         if estado["vf_activo"] and content_lower in ["verdadero", "v", "falso", "f"]:
             val_usuario = "verdadero" if content_lower in ["verdadero", "v"] else "falso"
@@ -171,6 +190,7 @@ class Bot(commands.Bot):
                 puntos_canal[autor_lower] += 30
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"✅ ¡Correcto @{autor}! Era **{estado['vf_respuesta_correcta'].upper()}** (+30 pts). 🎉")
+                return
 
         if estado["ahorcado_activo"]:
             if len(content_lower) == 1 and content_lower.isalpha():
@@ -186,55 +206,65 @@ class Bot(commands.Bot):
                     if estado["intentos_ahorcado"] <= 0:
                         estado["ahorcado_activo"] = False
                         await message.channel.send(f"💀 ¡Sin intentos! La palabra era: **{estado['palabra_secreta'].upper()}**")
+                return
             elif content_lower == estado["palabra_secreta"]:
                 estado["ahorcado_activo"] = False
                 puntos_canal[autor_lower] += 50
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
+                return
 
         # ==========================================
-        # CONVERSACIÓN HUMANA NATURAL Y FLUIDA
+        # PROCESAMIENTO AUTÓNOMO E INTELIGENTE CON IA
         # ==========================================
         if not content.startswith('!'):
-            # Limpiamos la mención al bot si viene incluida para leer solo lo que dice
-            texto_limpio = content_lower.replace(f"@{BOT_NICK}", "").strip()
-            
-            respuesta = ""
-            
-            if "hola" in texto_limpio or "que tal" in texto_limpio or "buenas" in texto_limpio:
-                respuesta = random.choice([
-                    "¡Qué pasa hermano! ¿Cómo va todo por ahí?",
-                    "¡Ey máquina! Pilla sitio que esto echa humo.",
-                    "¡Hola tío! Disfrutando de los vatios a tope."
-                ])
-            elif "como vas" in texto_limpio or "que tal estas" in texto_limpio:
-                respuesta = random.choice([
-                    "¡Pues por aquí a tope con los platos y los vinilos!",
-                    "¡Inmejorable tío, menuda sesión llevamos hoy!",
-                    "¡Gozándola con el buen sonido de los 90 y 2000!"
-                ])
-            elif "logan" in texto_limpio or "conocés" in texto_limpio or "conoces" in texto_limpio:
-                respuesta = random.choice([
-                    "¡Claro que conozco a logan_rdb! ¡Un crack de la vieja escuela!",
-                    "¡Hombre, logan_rdb es de los nuestros, de los que pisan fuerte el chat!"
-                ])
-            elif "temazo" in texto_limpio or "cancion" in texto_limpio or "musica" in texto_limpio:
-                respuesta = random.choice([
-                    "¡Totalmente! Este track tiene una energía brutal.",
-                    "¡Menudo subidón de tema, esto en directo suena increíble!",
-                    "¡La melodia de este track es legendaria tío!"
-                ])
-            else:
-                respuesta = random.choice([
-                    "¡Totalmente tío, menuda sesión nos estamos marcando hoy!",
-                    "¡Eso es así! El buen remember no se negocia.",
-                    "¡Jajaja tal cual, qué grandes sois familia!",
-                    "¡Brutal! A tope con los vatios y el buen rollo."
-                ])
+            # Verificamos si el mensaje va dirigido al bot o si se prefiere que responda de forma fluida
+            # Puedes hablarle directamente mencionándole o escribiendo en el chat de forma normal.
+            texto_respuesta = ""
+            if gemini_client:
+                try:
+                    # Limpiamos la mención del bot para que la IA lea el contenido puro
+                    texto_limpio = content.replace(f"@{BOT_NICK}", "").strip()
+                    if not texto_limpio:
+                        return # Si solo pusieron la mención vacía, ignoramos
 
-            await message.channel.send(f"@{autor} {respuesta}")
+                    print(f"🔥 [CHAT IA] De @{autor}: '{texto_limpio}'")
+
+                    # Creamos o recuperamos la sesión de chat personalizada con memoria por usuario
+                    if autor_lower not in self.chats_usuarios:
+                        self.chats_usuarios[autor_lower] = gemini_client.chats.create(
+                            model=GEMINI_MODEL,
+                            config=types.GenerateContentConfig(
+                                system_instruction=(
+                                    f"Eres un bot de Twitch llamado 'sesionesoldschool' que transmite y modera en un canal de música Remember, Hard Dance, Trance y Eurodance. "
+                                    f"Estás chateando en directo con el usuario '{autor}'. "
+                                    f"Tu personalidad es la de un colega fiestero, callejero, cercano, amiguero y 100% natural. "
+                                    f"Lee con total atención lo que te dice el usuario y respóndele de forma coherente, inteligente y totalmente adaptada a su pregunta o comentario. "
+                                    f"Cero respuestas robóticas o frases predeterminadas absurdas. Habla de tú a tú, usa expresiones de discoteca y buen rollo. "
+                                    f"IMPORTANTE: Sé ultra breve, directo y conciso (máximo 130 caracteres, sin saltos de línea para que encaje perfecto en el chat de Twitch)."
+                                ),
+                                temperature=0.9,
+                                max_output_tokens=70
+                            )
+                        )
+                    
+                    chat_sesion = self.chats_usuarios[autor_lower]
+                    response = chat_sesion.send_message(texto_limpio)
+                    
+                    if response and response.text:
+                        texto_respuesta = response.text.strip().replace('\n', ' ')
+                        print(f"✅ [RESPUESTA IA]: {texto_respuesta}")
+                except Exception as e:
+                    print(f"❌ [ERROR IA]: {e}")
+                    traceback.print_exc()
+
+            if not texto_respuesta:
+                texto_respuesta = f"¡Totalmente de acuerdo contigo, @{autor}!"
+
+            await message.channel.send(f"@{autor} {texto_respuesta}")
             return
 
+        # Si empieza por '!', procesamos los comandos normales del bot
         await self.handle_commands(message)
 
     async def bucle_repartir_puntos_actividad(self):
