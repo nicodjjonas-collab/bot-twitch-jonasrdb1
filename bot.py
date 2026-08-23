@@ -70,7 +70,6 @@ class Bot(commands.Bot):
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
         self.juegos_estado = {}
         self.usuarios_saludados = {}
-        self.chats_usuarios = {}
 
         for chan in CANALES:
             self.juegos_estado[chan] = {
@@ -162,7 +161,6 @@ class Bot(commands.Bot):
         if canal_nombre not in self.usuarios_saludados:
             self.usuarios_saludados[canal_nombre] = set()
 
-        # Sistema de puntos y bienvenida inicial
         puntos_canal = self.cargar_puntos_canal(canal_nombre)
         puntos_canal[autor_lower] = puntos_canal.get(autor_lower, 10) + 3
         self.guardar_puntos_canal(canal_nombre, puntos_canal)
@@ -175,7 +173,6 @@ class Bot(commands.Bot):
         content_lower = content.lower()
         estado = self.juegos_estado[canal_nombre]
 
-        # Comprobación de respuestas de minijuegos activos
         if estado["trivia_activa"] and content_lower == estado["trivia_respuesta_correcta"].lower():
             estado["trivia_activa"] = False
             puntos_canal[autor_lower] += 50 
@@ -215,41 +212,34 @@ class Bot(commands.Bot):
                 return
 
         # ==========================================
-        # PROCESAMIENTO AUTÓNOMO E INTELIGENTE CON IA
+        # PROCESAMIENTO DIRECTO CON IA (GENAI)
         # ==========================================
         if not content.startswith('!'):
-            # Verificamos si el mensaje va dirigido al bot o si se prefiere que responda de forma fluida
-            # Puedes hablarle directamente mencionándole o escribiendo en el chat de forma normal.
+            texto_limpio = content.replace(f"@{BOT_NICK}", "").strip()
+            if not texto_limpio:
+                return
+
+            print(f"🔥 [CHAT IA] De @{autor}: '{texto_limpio}'")
             texto_respuesta = ""
+
             if gemini_client:
                 try:
-                    # Limpiamos la mención del bot para que la IA lea el contenido puro
-                    texto_limpio = content.replace(f"@{BOT_NICK}", "").strip()
-                    if not texto_limpio:
-                        return # Si solo pusieron la mención vacía, ignoramos
+                    prompt_sistema = (
+                        f"Eres un bot de Twitch llamado 'sesionesoldschool' en un directo de música Remember, Hard Dance y Trance. "
+                        f"Estás hablando con el usuario {autor} que te ha dicho: '{texto_limpio}'. "
+                        f"Resóndele directamente a lo que te ha dicho o preguntado de forma natural, callejera, amiguera y como un colega festero. "
+                        f"IMPORTANTE: No digas frases genéricas. Responde de verdad a lo que te plantea. "
+                        f"Sé ultra breve (máximo 120 caracteres, sin saltos de línea)."
+                    )
 
-                    print(f"🔥 [CHAT IA] De @{autor}: '{texto_limpio}'")
-
-                    # Creamos o recuperamos la sesión de chat personalizada con memoria por usuario
-                    if autor_lower not in self.chats_usuarios:
-                        self.chats_usuarios[autor_lower] = gemini_client.chats.create(
-                            model=GEMINI_MODEL,
-                            config=types.GenerateContentConfig(
-                                system_instruction=(
-                                    f"Eres un bot de Twitch llamado 'sesionesoldschool' que transmite y modera en un canal de música Remember, Hard Dance, Trance y Eurodance. "
-                                    f"Estás chateando en directo con el usuario '{autor}'. "
-                                    f"Tu personalidad es la de un colega fiestero, callejero, cercano, amiguero y 100% natural. "
-                                    f"Lee con total atención lo que te dice el usuario y respóndele de forma coherente, inteligente y totalmente adaptada a su pregunta o comentario. "
-                                    f"Cero respuestas robóticas o frases predeterminadas absurdas. Habla de tú a tú, usa expresiones de discoteca y buen rollo. "
-                                    f"IMPORTANTE: Sé ultra breve, directo y conciso (máximo 130 caracteres, sin saltos de línea para que encaje perfecto en el chat de Twitch)."
-                                ),
-                                temperature=0.9,
-                                max_output_tokens=70
-                            )
+                    response = gemini_client.models.generate_content(
+                        model=GEMINI_MODEL,
+                        contents=prompt_sistema,
+                        config=types.GenerateContentConfig(
+                            temperature=0.9,
+                            max_output_tokens=60
                         )
-                    
-                    chat_sesion = self.chats_usuarios[autor_lower]
-                    response = chat_sesion.send_message(texto_limpio)
+                    )
                     
                     if response and response.text:
                         texto_respuesta = response.text.strip().replace('\n', ' ')
@@ -259,12 +249,11 @@ class Bot(commands.Bot):
                     traceback.print_exc()
 
             if not texto_respuesta:
-                texto_respuesta = f"¡Totalmente de acuerdo contigo, @{autor}!"
+                texto_respuesta = "¡A tope con los platos y el buen remember tío!"
 
             await message.channel.send(f"@{autor} {texto_respuesta}")
             return
 
-        # Si empieza por '!', procesamos los comandos normales del bot
         await self.handle_commands(message)
 
     async def bucle_repartir_puntos_actividad(self):
