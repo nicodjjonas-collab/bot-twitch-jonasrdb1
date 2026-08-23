@@ -12,21 +12,23 @@ TWITCH_TOKEN = os.environ.get("TMI_TOKEN")
 TWITCH_CHANNEL = os.environ.get("CHANNEL")
 
 if not GEMINI_API_KEY:
-    print("⚠️ [ADVERTENCIA]: Falta la variable GEMINI_API_KEY en Railway.")
+    print("⚠️ [ADVERTENCIA]: Falta la variable GEMINI_API_KEY.")
 if not TWITCH_TOKEN or not TWITCH_CHANNEL:
-    print("❌ [ERROR CRÍTICO]: Faltan TMI_TOKEN o CHANNEL en las variables de entorno de Railway.")
+    print("❌ [ERROR CRíTICO]: Faltan TMI_TOKEN o CHANNEL en las variables de entorno.")
 
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # --- CONFIGURACIÓN DEL PROMPT PARTICIPATIVO ---
 SYSTEM_PROMPT = """
 Eres el Copiloto IA y DJ virtual oficial del canal de Twitch de música Remember, Makina, Hard Dance, Eurodance y Tech House. 
-Tu objetivo es animar el chat, comentar los temazos que suenan, interactuar con los viewers y dar ambiente de discoteca de los 90 y 2000 (Ruta del Bakalao, etc.).
+Tu objetivo es animar el chat, comentar los temazos que suenan, interactuar con los viewers y dar ambiente de discoteca de los 90 y 2000.
 Sé cercano, divertido, usa jerga electrónica y expresión fiestera (¡A tope!, ¡Vivan los 90!, ¡Temazo!).
-Responde siempre de forma natural, amigable y participativa a lo que digan en el chat o a lo que te pregunten. No te quedes callado; aporta energía positiva a la comunidad.
+Responde siempre de forma natural, amigable y participativa a lo que digan en el chat o a lo que te pregunten.
 """
 
 def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
+    if not gemini_client:
+        return "¡A tope con la sesión! 🚀"
     try:
         modelo_actual = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
         prompt_completo = f"{SYSTEM_PROMPT}\n\n{nombre_usuario} dice: {mensaje_usuario}"
@@ -38,8 +40,7 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
         
         if respuesta and respuesta.text:
             texto_respuesta = respuesta.text.strip()
-            texto_respuesta = " ".join(texto_respuesta.splitlines())
-            return texto_respuesta
+            return " ".join(texto_respuesta.splitlines())
         
         return "¡Qué pasa! ¡Menudo ambientazo tenemos por el chat! 🎧🔥"
         
@@ -74,13 +75,11 @@ class Bot(commands.Bot):
             return
 
         print(f"💬 Mensaje recibido de {autor}: {contenido}")
-        
         respuesta_ia = responder_con_ia(contenido, autor)
         
         if respuesta_ia:
             await message.channel.send(respuesta_ia)
 
-    # --- COMANDOS Y MINIJUEGOS ---
     @commands.command(name="temazo")
     async def cmd_temazo(self, ctx):
         frases_temazo = [
@@ -93,13 +92,13 @@ class Bot(commands.Bot):
     @commands.command(name="energia")
     async def cmd_energia(self, ctx):
         nivel = random.randint(85, 100)
-        await ctx.send(f"⚡ @{ctx.author.name} ¡El nivel de energía del chat está al **{nivel}%**! ¡Esto quema pista! 🔥🎛️")
+        await ctx.send(f"⚡ @{ctx.author.name} ¡El nivel de energía del chat está al **{nivel}%**! 🔥🎛️")
 
     @commands.command(name="ruleta")
     async def cmd_ruleta(self, ctx):
         premios = [
             "¡Premio! Te ganas un pase VIP virtual para primera fila de la pista. 🎫🕺",
-            "¡Oh no! Te has tropezado con un altavoz gigante bailando Makina. ¡A levantarse! 🔊😂",
+            "¡Oh no! Te has tropezado con un altavoz gigante bailando Makina. 🔊😂",
             "¡Jackpot! Te llevas el título honorífico de Rey de la Ruta del Bakalao hoy. 👑💿",
             "¡Sigue pinchando! Te toca invitar a un Red Bull virtual al chat. ⚡🥤"
         ]
@@ -112,7 +111,7 @@ class Bot(commands.Bot):
             "¿Qué estilo de música electrónica rápida y fiestera con vocales agudas triunfaba en las campas y discotecas en 1996?",
             "¿Cuál es el BPM aproximado al que suele correr un buen tema de Makina o Hard Dance?"
         ]
-        await ctx.send(f"❓ **TRIVIA CLUBBER para @{ctx.author.name}:** {random.choice(preguntas)} ¡Responde en el chat!")
+        await ctx.send(f"❓ **TRIVIA CLUBBER para @{ctx.author.name}:** {random.choice(preguntas)}")
 
 
 # --- SERVIDOR HTTP PARA RAILWAY ---
@@ -121,7 +120,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("Bot de Twitch Remember con IA y Minijuegos activo! 🎧".encode("utf-8"))
+        self.wfile.write("Bot de Twitch Remember con IA activo! 🎧".encode("utf-8"))
 
 def run_http_server():
     port = int(os.environ.get("PORT", 8080))
@@ -135,5 +134,12 @@ if __name__ == "__main__":
     hilo_web = threading.Thread(target=run_http_server, daemon=True)
     hilo_web.start()
 
-    bot = Bot()
-    bot.run()
+    if TWITCH_TOKEN and TWITCH_CHANNEL:
+        bot = Bot()
+        bot.run()
+    else:
+        print("⚠️ [AVISO]: El bot de Twitch está desactivado por falta de variables, pero el servidor web sigue activo.")
+        # Mantiene el contenedor vivo para que puedas revisar las variables en Railway sin que crashee en bucle
+        import time
+        while True:
+            time.sleep(3600)
