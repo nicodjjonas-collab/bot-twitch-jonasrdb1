@@ -63,7 +63,7 @@ class Bot(commands.Bot):
         print(f"channels: {self.initial_channels}")
 
     async def event_message(self, message):
-        # Si el mensaje viene del propio bot, lo ignoramos para evitar bucles infinitos
+        # Evitamos que el bot se responda a sí mismo
         if message.author and message.author.name.lower() == self.nick.lower():
             return
 
@@ -77,11 +77,16 @@ class Bot(commands.Bot):
         if contenido.startswith("!"):
             return
 
-        # Llamamos a la IA para que responda a cualquier usuario que hable en el chat
+        # Obtenemos la respuesta de la IA
         respuesta_ia = responder_con_ia(contenido, autor)
         
         if respuesta_ia:
-            await message.channel.send(respuesta_ia)
+            try:
+                print(f"🚀 Intentando enviar al canal {message.channel.name}: {respuesta_ia}")
+                await message.channel.send(respuesta_ia)
+                print("✅ Mensaje enviado correctamente a Twitch.")
+            except Exception as e:
+                print(f"❌ [TWITCH SEND ERROR]: No se pudo enviar el mensaje. Detalle: {e}")
 
     @commands.command(name="temazo")
     async def cmd_temazo(self, ctx):
