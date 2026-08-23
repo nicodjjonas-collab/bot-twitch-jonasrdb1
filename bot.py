@@ -6,8 +6,16 @@ import threading
 from twitchio.ext import commands
 from google import genai
 
-# --- CONFIGURACIÓN DE CLIENTES ---
+# --- VALIDACIÓN DE CREDENCIALES ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+TWITCH_TOKEN = os.environ.get("TMI_TOKEN")
+TWITCH_CHANNEL = os.environ.get("CHANNEL")
+
+if not GEMINI_API_KEY:
+    print("⚠️ [ADVERTENCIA]: Falta la variable GEMINI_API_KEY en Railway.")
+if not TWITCH_TOKEN or not TWITCH_CHANNEL:
+    print("❌ [ERROR CRÍTICO]: Faltan TMI_TOKEN o CHANNEL en las variables de entorno de Railway.")
+
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # --- CONFIGURACIÓN DEL PROMPT PARTICIPATIVO ---
@@ -19,10 +27,6 @@ Responde siempre de forma natural, amigable y participativa a lo que digan en el
 """
 
 def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
-    """
-    Envía el mensaje a Gemini utilizando el modelo configurado 
-    y devuelve una respuesta dinámica y participativa para el chat de Twitch.
-    """
     try:
         modelo_actual = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
         prompt_completo = f"{SYSTEM_PROMPT}\n\n{nombre_usuario} dice: {mensaje_usuario}"
@@ -48,9 +52,9 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
 class Bot(commands.Bot):
     def __init__(self):
         super().__init__(
-            token=os.environ.get("TMI_TOKEN"),
+            token=TWITCH_TOKEN,
             prefix=os.environ.get("BOT_PREFIX", "!"),
-            initial_channels=[os.environ.get("CHANNEL")]
+            initial_channels=[TWITCH_CHANNEL]
         )
 
     async def event_ready(self):
@@ -66,13 +70,11 @@ class Bot(commands.Bot):
         contenido = message.content
         autor = message.author.name if message.author else "Viewer"
         
-        # Si es un comando (empieza por '!'), dejamos que los comandos lo atiendan y no salta la IA
         if contenido.startswith("!"):
             return
 
         print(f"💬 Mensaje recibido de {autor}: {contenido}")
         
-        # Llamamos a la IA de forma participativa
         respuesta_ia = responder_con_ia(contenido, autor)
         
         if respuesta_ia:
@@ -81,7 +83,6 @@ class Bot(commands.Bot):
     # --- COMANDOS Y MINIJUEGOS ---
     @commands.command(name="temazo")
     async def cmd_temazo(self, ctx):
-        """Comando para destacar el track actual"""
         frases_temazo = [
             f"@{ctx.author.name} ¡MENUDO HIMNO DE LA RUTA! 🎹🔥 ¡A bailar se ha dicho!",
             f"@{ctx.author.name} Subiendo los sub-bajos al 200%! Esto es Remember del bueno. 🎧✨",
@@ -91,13 +92,11 @@ class Bot(commands.Bot):
 
     @commands.command(name="energia")
     async def cmd_energia(self, ctx):
-        """Mide la energía festera del chat"""
         nivel = random.randint(85, 100)
         await ctx.send(f"⚡ @{ctx.author.name} ¡El nivel de energía del chat está al **{nivel}%**! ¡Esto quema pista! 🔥🎛️")
 
     @commands.command(name="ruleta")
     async def cmd_ruleta(self, ctx):
-        """Minijuego de la ruleta fiestera"""
         premios = [
             "¡Premio! Te ganas un pase VIP virtual para primera fila de la pista. 🎫🕺",
             "¡Oh no! Te has tropezado con un altavoz gigante bailando Makina. ¡A levantarse! 🔊😂",
@@ -108,7 +107,6 @@ class Bot(commands.Bot):
 
     @commands.command(name="trivia")
     async def cmd_trivia(self, ctx):
-        """Minijuego de cultura musical Remember"""
         preguntas = [
             "¿En qué año comenzó la época dorada de la Ruta del Bakalao en Valencia? (Pista: principios de los 90)",
             "¿Qué estilo de música electrónica rápida y fiestera con vocales agudas triunfaba en las campas y discotecas en 1996?",
