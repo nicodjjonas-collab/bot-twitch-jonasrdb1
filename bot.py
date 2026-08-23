@@ -238,22 +238,25 @@ class Bot(commands.Bot):
                 f"Máximo 100 caracteres, sin saltos de línea."
             )
 
+            print(f"🤖 [GEMINI REQUEST] Enviando a modelo '{GEMINI_MODEL}'...")
             respuesta_ia = gemini_client.models.generate_content(
                 model=GEMINI_MODEL,
                 contents=prompt
             )
 
-            if respuesta_ia and respuesta_ia.text:
+            if respuesta_ia and hasattr(respuesta_ia, 'text') and respuesta_ia.text:
                 texto_final = respuesta_ia.text.strip().replace('\n', ' ')
                 print(f"✅ [IA RESPONDE]: {texto_final}")
                 await message.channel.send(f"@{autor} {texto_final}")
                 return
             else:
-                print("⚠️ [AVISO] La API respondió pero el texto vino vacío.")
+                print("⚠️ [AVISO] La API respondió pero el texto vino vacío o sin la propiedad .text")
+                print(f"Objeto respuesta recibido: {respuesta_ia}")
         except Exception as e:
-            print(f"❌ [EXCEPCIÓN EN GEMINI]: {e}")
+            print(f"❌ [EXCEPCIÓN CRÍTICA EN GEMINI]: {e}")
             traceback.print_exc()
 
+        # Respuesta de emergencia si falla la IA
         await message.channel.send(f"@{autor} ¡A tope con la sesión de remember!")
 
     async def bucle_repartir_puntos_actividad(self):
