@@ -23,7 +23,7 @@ class HealthHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"OK")
     def log_message(self, format, *args):
-        pass # Silencia logs HTTP para mantener la consola limpia
+        pass
 
 def iniciar_web():
     try:
@@ -33,7 +33,6 @@ def iniciar_web():
     except Exception as e:
         print(f"[WEB] Error crítico en servidor HTTP: {e}")
 
-# Arrancamos el servidor web en segundo plano inmediatamente
 hilo_web = threading.Thread(target=iniciar_web, daemon=True)
 hilo_web.start()
 
@@ -43,7 +42,7 @@ hilo_web.start()
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
 
-canal_env = os.environ.get('TWITCH_CANAL', 'jonasrdb').strip().lower()
+canal_env = os.environ.get('TWITCH_CANAL', 'jonasRDB').strip().lower()
 CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
@@ -59,7 +58,7 @@ if GEMINI_KEY:
     except Exception as e:
         print(f"[INIT] Error al iniciar cliente Gemini: {e}")
 else:
-    print("[INIT] AVISO: No se encontró GEMINI_API_KEY (ni GOOGLE_API_KEY) en las variables de entorno.")
+    print("[INIT] AVISO: No se encontró GEMINI_API_KEY en las variables de entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -68,19 +67,16 @@ class Bot(commands.Bot):
             prefix='!',
             initial_channels=CANALES
         )
-        self.ultimos_mensajes_canal = {} 
         self.emotes_twitch = ["Kappa", "PogChamp", "NotLikeThis", "BibleThump", "LUL", "pepeJAM", "CatJAM", "Kreygasm"]
-        self.ultimos_mensajes_chat = {} 
-        self.usuarios_saludados = {}    
-
         self.juegos_estado = {}
+        self.usuarios_saludados = {}
+
         for chan in CANALES:
             self.juegos_estado[chan] = {
                 "trivia_activa": False, "trivia_respuesta_correcta": "",
                 "ahorcado_activo": False, "palabra_secreta": "", "letras_adivinadas": set(), "intentos_ahorcado": 6,
                 "vf_activo": False, "vf_respuesta_correcta": ""
             }
-            self.ultimos_mensajes_chat[chan] = []
             self.usuarios_saludados[chan] = set()
 
         self.palabras_ahorcado = ["makina", "hardance", "trance", "eurodance", "valencia", "puzle", "spook", "chasis", "pontateri", "bakalao", "cabina", "vinilo"]
@@ -159,12 +155,9 @@ class Bot(commands.Bot):
                 "ahorcado_activo": False, "palabra_secreta": "", "letras_adivinadas": set(), "intentos_ahorcado": 6,
                 "vf_activo": False, "vf_respuesta_correcta": ""
             }
-        if canal_nombre not in self.ultimos_mensajes_chat:
-            self.ultimos_mensajes_chat[canal_nombre] = []
         if canal_nombre not in self.usuarios_saludados:
             self.usuarios_saludados[canal_nombre] = set()
 
-        # Puntos por chatear
         puntos_canal = self.cargar_puntos_canal(canal_nombre)
         puntos_canal[autor_lower] = puntos_canal.get(autor_lower, 10) + 3
         self.guardar_puntos_canal(canal_nombre, puntos_canal)
@@ -177,7 +170,6 @@ class Bot(commands.Bot):
         content_lower = content.lower()
         estado = self.juegos_estado[canal_nombre]
 
-        # Comprobar Juegos
         if estado["trivia_activa"] and content_lower == estado["trivia_respuesta_correcta"].lower():
             estado["trivia_activa"] = False
             puntos_canal[autor_lower] += 50 
@@ -213,14 +205,13 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (GOOGLE GEMINI)
+        # INTELIGENCIA ARTIFICIAL (GOOGLE GEMINI CHAT)
         # ==========================================
         if gemini_client and not content.startswith('!'):
             print(f"🔥 [EVENTO GEMINI] Procesando mensaje de {autor}: '{content}'")
             try:
-                response = gemini_client.models.generate_content(
+                chat_session = gemini_client.chats.create(
                     model=GEMINI_MODEL,
-                    contents=f"El usuario {autor} dice en el chat de Twitch: '{content}'",
                     config=types.GenerateContentConfig(
                         system_instruction=(
                             "Eres un colega más viendo el directo de música remember en Twitch. "
@@ -231,6 +222,8 @@ class Bot(commands.Bot):
                         max_output_tokens=80
                     )
                 )
+                
+                response = chat_session.send_message(f"El usuario {autor} dice en el chat de Twitch: '{content}'")
                 
                 if response and response.text:
                     texto_respuesta = response.text.strip().replace('\n', ' ')
@@ -262,17 +255,18 @@ class Bot(commands.Bot):
                     if canal_obj:
                         if gemini_client:
                             try:
-                                response = gemini_client.models.generate_content(
+                                chat_auto = gemini_client.chats.create(
                                     model=GEMINI_MODEL,
-                                    contents="Suelta una frase corta de colega animando el chat de música remember y haz una pregunta rápida sobre los temas.",
                                     config=types.GenerateContentConfig(
                                         system_instruction="Eres un espectador en un directo de música remember. Sé breve y callejero.",
                                         temperature=0.9,
                                         max_output_tokens=80
                                     )
                                 )
+                                response = chat_auto.send_message("Suelta una frase corta de colega animando el chat de música remember y haz una pregunta rápida sobre los temas.")
                                 msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Qué track ponemos?").replace('\n', ' ')
-                            except:
+                            except Exception as e:
+                                print(f"Error IA autónoma: {e}")
                                 msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga. {random.choice(self.emotes_twitch)}"
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
