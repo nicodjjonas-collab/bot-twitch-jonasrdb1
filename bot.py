@@ -212,26 +212,26 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (GOOGLE GEMINI)
+        # INTELIGENCIA ARTIFICIAL (GOOGLE GEMINI - LIMPIO)
         # ==========================================
         if gemini_client and not content.startswith('!'):
             print(f"🔥 [EVENTO GEMINI] Procesando mensaje de {autor}: '{content}'")
             try:
-                prompt_sistema = (
-                    "Eres un colega más viendo el directo de música remember en Twitch. "
-                    "Habla en español, de forma cercana, natural, callejera y fiestera. "
-                    "Responde de manera muy breve (máximo 140 caracteres, sin saltos de línea)."
-                )
-                
-                response = gemini_client.models.generate_content(
+                # Usamos una sesión de chat para evitar la advertencia de function calling en generate_content
+                chat = gemini_client.chats.create(
                     model=GEMINI_MODEL,
-                    contents=f"El usuario {autor} dice en el chat: '{content}'",
                     config={
-                        'system_instruction': prompt_sistema,
+                        'system_instruction': (
+                            "Eres un colega más viendo el directo de música remember en Twitch. "
+                            "Habla en español, de forma cercana, natural, callejera y fiestera. "
+                            "Responde de manera muy breve (máximo 140 caracteres, sin saltos de línea)."
+                        ),
                         'temperature': 0.9,
                         'max_output_tokens': 80
                     }
                 )
+                
+                response = chat.send_message(f"El usuario {autor} dice en el chat: '{content}'")
                 
                 if response and response.text:
                     texto_respuesta = response.text.strip().replace('\n', ' ')
@@ -263,15 +263,15 @@ class Bot(commands.Bot):
                     if canal_obj:
                         if gemini_client:
                             try:
-                                response = gemini_client.models.generate_content(
+                                chat_auto = gemini_client.chats.create(
                                     model=GEMINI_MODEL,
-                                    contents="Suelta una frase corta de colega animando el chat de música remember y haz una pregunta rápida sobre los temas.",
                                     config={
                                         'system_instruction': "Eres un espectador en un directo de música remember. Sé breve y callejero.",
                                         'temperature': 0.9,
                                         'max_output_tokens': 80
                                     }
                                 )
+                                response = chat_auto.send_message("Suelta una frase corta de colega animando el chat de música remember y haz una pregunta rápida sobre los temas.")
                                 msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Qué track ponemos?").replace('\n', ' ')
                             except:
                                 msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga. {random.choice(self.emotes_twitch)}"
