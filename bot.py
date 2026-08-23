@@ -229,39 +229,39 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (DEEPSEEK)
+        # INTELIGENCIA ARTIFICIAL (DEEPSEEK) - CONDICIÓN SIMPLIFICADA
         # ==========================================
-        menciona_al_bot = BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower
-        dice_hola = "hola" in content_lower
-
-        if deepseek_client and (menciona_al_bot or dice_hola) and not content.startswith('!'):
-            print(f"🔥 [EVENTO DEEPSEEK] Mensaje detectado de {autor}: '{content}'")
-            try:
-                prompt_usuario = content_lower
-                for nick in [f"@{BOT_NICK}", BOT_NICK]:
-                    prompt_usuario = prompt_usuario.replace(nick, "")
-                prompt_usuario = prompt_usuario.strip()
-                
-                if not prompt_usuario:
-                    prompt_usuario = "¡Hola máquina!"
-                
-                response = deepseek_client.chat.completions.create(
-                    model=DEEPSEEK_MODEL,
-                    messages=[
-                        {"role": "system", "content": "Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana, natural y callejera. Máximo 140 caracteres."},
-                        {"role": "user", "content": f"El usuario {autor} dice: '{prompt_usuario}'"}
-                    ],
-                    temperature=0.9,
-                    max_tokens=80
-                )
-                
-                if response and response.choices:
-                    texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
-                    print(f"✅ [ÉXITO DEEPSEEK] Respuesta: {texto_respuesta}")
-                    await message.channel.send(f"@{autor} {texto_respuesta}")
-                    return
-            except Exception as e:
-                print(f"❌ [ERROR CRÍTICO DEEPSEEK]: {type(e).__name__} - {e}")
+        if deepseek_client and not content.startswith('!'):
+            menciona_al_bot = BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower or "hola" in content_lower
+            
+            if menciona_al_bot:
+                print(f"🔥 [EVENTO DEEPSEEK] Procesando mensaje de {autor}: '{content}'")
+                try:
+                    prompt_usuario = content_lower
+                    for nick in [f"@{BOT_NICK}", BOT_NICK]:
+                        prompt_usuario = prompt_usuario.replace(nick, "")
+                    prompt_usuario = prompt_usuario.strip()
+                    
+                    if not prompt_usuario:
+                        prompt_usuario = "¡Hola máquina!"
+                    
+                    response = deepseek_client.chat.completions.create(
+                        model=DEEPSEEK_MODEL,
+                        messages=[
+                            {"role": "system", "content": "Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana, natural y callejera. Máximo 140 caracteres."},
+                            {"role": "user", "content": f"El usuario {autor} dice: '{prompt_usuario}'"}
+                        ],
+                        temperature=0.9,
+                        max_tokens=80
+                    )
+                    
+                    if response and response.choices:
+                        texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
+                        print(f"✅ [ÉXITO DEEPSEEK] Respuesta generada: {texto_respuesta}")
+                        await message.channel.send(f"@{autor} {texto_respuesta}")
+                        return
+                except Exception as e:
+                    print(f"❌ [ERROR CRÍTICO DEEPSEEK]: {type(e).__name__} - {e}")
 
         await self.handle_commands(message)
 
