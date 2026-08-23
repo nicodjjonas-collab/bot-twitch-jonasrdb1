@@ -35,15 +35,19 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
         return f"@{nombre_usuario} ¡A tope con la sesión! 🚀"
     try:
         modelo = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-        response = gemini_client.models.generate_content(
+        
+        # Usamos una sesión de chat para evitar avisos de función automática y estilizar la respuesta
+        chat = gemini_client.chats.create(
             model=modelo,
-            contents=f"El usuario {nombre_usuario} dice en el chat: '{mensaje_usuario}'",
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTION,
                 max_output_tokens=80,
                 temperature=0.9
             )
         )
+        
+        response = chat.send_message(f"El usuario {nombre_usuario} dice en el chat: '{mensaje_usuario}'")
+        
         if response and response.text:
             texto_limpio = " ".join(response.text.strip().splitlines())
             if f"@{nombre_usuario}" not in texto_limpio and nombre_usuario.lower() != "viewer":
