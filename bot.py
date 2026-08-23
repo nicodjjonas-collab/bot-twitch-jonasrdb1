@@ -47,15 +47,19 @@ CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_e
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
 
-print(f"[INIT] Arrancando bot para los canales: {CANALES} (Bot nick: {BOT_NICK})")
+print(f"[INIT] Arrancando bot para canales: {CANALES} | Modelo: {GEMINI_MODEL}")
+print(f"[INIT] ¿Existe GEMINI_API_KEY?: {bool(GEMINI_KEY)}")
 
 gemini_client = None
 if GEMINI_KEY:
     try:
         gemini_client = genai.Client(api_key=GEMINI_KEY)
-        print("[INIT] ¡Cliente de Google Gemini conectado correctamente!")
+        print("[INIT] ¡Cliente de Google Gemini conectado con éxito!")
     except Exception as e:
-        print(f"[INIT] Error al iniciar cliente Gemini: {e}")
+        print(f"[INIT ERROR] Falló al crear genai.Client: {e}")
+        traceback.print_exc()
+else:
+    print("[INIT AVISO] No se encontró GEMINI_API_KEY en el entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -208,7 +212,6 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
                 return
 
-        # Si es un comando con signo de exclamación, lo procesamos normalmente
         if content.startswith('!'):
             await self.handle_commands(message)
             return
@@ -220,39 +223,38 @@ class Bot(commands.Bot):
         if not texto_limpio:
             return
 
-        print(f"🔥 [CHAT IA] Mensaje recibido de @{autor}: '{texto_limpio}'")
+        print(f"🔥 [CHAT IA] Mensaje de @{autor}: '{texto_limpio}'")
         
-        if gemini_client:
-            try:
-                prompt = (
-                    f"Eres un bot de Twitch llamado 'sesionesoldschool' experto en música Remember, Hard Dance y Trance. "
-                    f"El usuario {autor} te ha dicho exactamente esto: '{texto_limpio}'. "
-                    f"Respondele de forma ultra natural, cercana, como un colega fiestero en un directo de Twitch. "
-                    f"No digas frases repetitivas ni predeterminadas. Contesta directamente a lo que te ha dicho. "
-                    f"Máximo 100 caracteres, sin saltos de línea."
-                )
+        if not gemini_client:
+            print("❌ [ERROR] gemini_client es None. Revisa tu variable GEMINI_API_KEY en Railway.")
+            await message.channel.send(f"@{autor} ¡Ey! Falta configurar la API Key de Gemini en el servidor.")
+            return
 
-                respuesta_ia = gemini_client.models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=prompt
-                )
+        try:
+            prompt = (
+                f"Eres un bot de Twitch llamado 'sesionesoldschool' experto en música Remember, Hard Dance y Trance. "
+                f"El usuario {autor} te ha dicho: '{texto_limpio}'. "
+                f"Responde de forma natural, cercana y como un colega festero. "
+                f"Máximo 100 caracteres, sin saltos de línea."
+            )
 
-                if respuesta_ia and respuesta_ia.text:
-                    texto_final = respuesta_ia.text.strip().replace('\n', ' ')
-                    print(f"✅ [RESPUESTA ENVIADA]: {texto_final}")
-                    await message.channel.send(f"@{autor} {texto_final}")
-                    return
-            except Exception as e:
-                print(f"❌ [ERROR GRAVE EN GEMINI]: {e}")
-                traceback.print_exc()
+            respuesta_ia = gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt
+            )
 
-        # Si por lo que sea falla la API, responde con algo dinámico y aleatorio en vez de una frase fija
-        respuestas_emergencia = [
-            "¡Menudo temazo llevamos ahora mismo tío!",
-            "¡Totalmente de acuerdo, a tope con la sesión!",
-            "¡Eso es así, puro sonido remember de calidad!"
-        ]
-        await message.channel.send(f"@{autor} {random.choice(respuestas_emergencia)}")
+            if respuesta_ia and respuesta_ia.text:
+                texto_final = respuesta_ia.text.strip().replace('\n', ' ')
+                print(f"✅ [IA RESPONDE]: {texto_final}")
+                await message.channel.send(f"@{autor} {texto_final}")
+                return
+            else:
+                print("⚠️ [AVISO] La API respondió pero el texto vino vacío.")
+        except Exception as e:
+            print(f"❌ [EXCEPCIÓN EN GEMINI]: {e}")
+            traceback.print_exc()
+
+        await message.channel.send(f"@{autor} ¡A tope con la sesión de remember!")
 
     async def bucle_repartir_puntos_actividad(self):
         while True:
