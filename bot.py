@@ -8,7 +8,6 @@ import twitchio
 from twitchio.ext import commands
 from openai import OpenAI
 
-# ============ CONFIGURACIÓN ============
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
 
@@ -16,26 +15,24 @@ canal_env = os.environ.get('TWITCH_CANAL', 'jonasrdb').strip().lower()
 CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
 # Configuración de DeepSeek API
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '').strip()
-DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat')  # o 'deepseek-reasoner'
-DEEPSEEK_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1')
+DEEPSEEK_KEY = os.environ.get('DEEPSEEK_API_KEY')
+DEEPSEEK_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
+DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat') # O deepseek-reasoner si prefieres
 
-print(f"[INIT] Arrancando bot con DeepSeek ({DEEPSEEK_MODEL}) para los canales: {CANALES} (Bot nick: {BOT_NICK})")
+print(f"[INIT] Arrancando bot con DeepSeek para los canales: {CANALES} (Bot nick: {BOT_NICK})")
 
-# Inicializar cliente DeepSeek
-try:
-    if not DEEPSEEK_API_KEY:
-        print("[ERROR] DEEPSEEK_API_KEY no configurada. La IA no funcionará.")
-        deepseek_client = None
-    else:
+deepseek_client = None
+if DEEPSEEK_KEY:
+    try:
         deepseek_client = OpenAI(
-            api_key=DEEPSEEK_API_KEY,
+            api_key=DEEPSEEK_KEY,
             base_url=DEEPSEEK_BASE_URL
         )
-        print("[INIT] ¡Cliente de DeepSeek inicializado correctamente!")
-except Exception as e:
-    print(f"[INIT] Error al iniciar cliente DeepSeek: {e}")
-    deepseek_client = None
+        print("[INIT] ¡Cliente de DeepSeek conectado correctamente!")
+    except Exception as e:
+        print(f"[INIT] Error al iniciar cliente DeepSeek: {e}")
+else:
+    print("[INIT] AVISO: No se encontró DEEPSEEK_API_KEY en las variables de entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -49,7 +46,6 @@ class Bot(commands.Bot):
         self.ultimos_mensajes_chat = {} 
         self.usuarios_saludados = {}    
         self.ultimos_temas = []
-        self.ultima_respuesta_ia = {}  # Para control de spam
 
         self.juegos_estado = {}
         for chan in CANALES:
@@ -87,7 +83,6 @@ class Bot(commands.Bot):
             {"pregunta": "El vinilo sigue siendo un formato legendario muy valorado en las sesiones de música remember.", "respuesta": "verdadero"}
         ]
 
-    # ============ MÉTODOS DE PERSISTENCIA ============
     def obtener_archivo_puntos(self, canal):
         return f"puntos_liga_{canal.lower()}.json"
 
@@ -116,53 +111,6 @@ class Bot(commands.Bot):
         except Exception as e:
             print(f"Error al guardar peticiones_{canal}.txt: {e}")
 
-    # ============ MÉTODOS DE IA ============
-    async def obtener_respuesta_deepseek(self, prompt_usuario, autor, contexto_chat=None):
-        """Obtiene respuesta de DeepSeek API de forma asíncrona"""
-        if not deepseek_client:
-            return None
-        
-        try:
-            # Construir mensajes con contexto
-            messages = [
-                {"role": "system", "content": "Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana, natural y callejera. Máximo 140 caracteres. Usa emotes de Twitch si encaja."}
-            ]
-            
-            # Añadir contexto del chat si existe
-            if contexto_chat:
-                messages.append({
-                    "role": "system", 
-                    "content": f"Contexto del chat: {contexto_chat}"
-                })
-            
-            messages.append({
-                "role": "user", 
-                "content": f"El usuario {autor} dice: '{prompt_usuario}'"
-            })
-            
-            # Llamada a la API de DeepSeek
-            response = await asyncio.to_thread(
-                deepseek_client.chat.completions.create,
-                model=DEEPSEEK_MODEL,
-                messages=messages,
-                temperature=0.9,
-                max_tokens=100,
-                top_p=0.9
-            )
-            
-            if response and response.choices:
-                texto = response.choices[0].message.content.strip().replace('\n', ' ')
-                # Limitar longitud
-                if len(texto) > 200:
-                    texto = texto[:197] + "..."
-                return texto
-            return None
-            
-        except Exception as e:
-            print(f"❌ [ERROR DeepSeek]: {type(e).__name__} - {e}")
-            return None
-
-    # ============ EVENTOS ============
     async def event_ready(self):
         print(f'=== ¡BOT CONECTADO EN: {CANALES} ===')
         asyncio.create_task(self.bucle_autonomo_chat())
@@ -183,7 +131,6 @@ class Bot(commands.Bot):
 
         self.ultimos_mensajes_canal[canal_nombre] = time.time()
 
-        # Inicializar estructuras si no existen
         if canal_nombre not in self.juegos_estado:
             self.juegos_estado[canal_nombre] = {
                 "trivia_activa": False, "trivia_respuesta_correcta": "",
@@ -204,12 +151,10 @@ class Bot(commands.Bot):
             puntos_canal[autor_lower] += 3
         self.guardar_puntos_canal(canal_nombre, puntos_canal)
 
-        # Saludo a nuevos usuarios
         if autor_lower not in self.usuarios_saludados[canal_nombre] and autor_lower != canal_nombre:
             self.usuarios_saludados[canal_nombre].add(autor_lower)
             await message.channel.send(f"¡Qué pasa @{autor}! Pilla sitio. Cuanto más chatees y participes, más subes en la Liga Mensual para ganar **una sesión exclusiva**. 🎧🔥")
 
-        # Guardar historial del chat
         self.ultimos_mensajes_chat[canal_nombre].append(f"{autor}: {message.content}")
         if len(self.ultimos_mensajes_chat[canal_nombre]) > 15:
             self.ultimos_mensajes_chat[canal_nombre].pop(0)
@@ -218,15 +163,13 @@ class Bot(commands.Bot):
         content_lower = content.lower()
         estado = self.juegos_estado[canal_nombre]
 
-        # ============ JUEGOS ============
-        # Trivia
+        # Comprobar Juegos
         if estado["trivia_activa"] and content_lower == estado["trivia_respuesta_correcta"].lower():
             estado["trivia_activa"] = False
             puntos_canal[autor_lower] += 50 
             self.guardar_puntos_canal(canal_nombre, puntos_canal)
             await message.channel.send(f"¡Buena, @{autor}! Has clavado la trivia y sumas 50 puntos para la liga mensual. 🎯")
 
-        # Verdadero/Falso
         if estado["vf_activo"] and content_lower in ["verdadero", "v", "falso", "f"]:
             val_usuario = "verdadero" if content_lower in ["verdadero", "v"] else "falso"
             if val_usuario == estado["vf_respuesta_correcta"]:
@@ -235,7 +178,6 @@ class Bot(commands.Bot):
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"✅ ¡Correcto @{autor}! Era **{estado['vf_respuesta_correcta'].upper()}** (+30 pts). 🎉")
 
-        # Ahorcado
         if estado["ahorcado_activo"]:
             if len(content_lower) == 1 and content_lower.isalpha():
                 if content_lower in estado["palabra_secreta"]:
@@ -259,51 +201,41 @@ class Bot(commands.Bot):
                 self.guardar_puntos_canal(canal_nombre, puntos_canal)
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
-        # ============ INTELIGENCIA ARTIFICIAL (DEEPSEEK) ============
-        # Detectar mención al bot o saludo
-        es_mencion_bot = (
-            BOT_NICK in content_lower or 
-            f"@{BOT_NICK}" in content_lower or
-            (content_lower in ["hola", "hey", "buenas", "que tal"] and len(content) < 15)
-        )
+        # ==========================================
+        # INTELIGENCIA ARTIFICIAL (DEEPSEEK)
+        # ==========================================
+        es_mencion_bot = BOT_NICK in content_lower or f"@{BOT_NICK}" in content_lower or "hola" in content_lower
         
         if deepseek_client and es_mencion_bot and not content.startswith('!'):
-            # Control de spam
-            clave_ia = f"{canal_nombre}_{autor_lower}"
-            ahora = time.time()
-            if clave_ia in self.ultima_respuesta_ia:
-                if ahora - self.ultima_respuesta_ia[clave_ia] < 10:  # 10 segundos mínimo entre respuestas
+            print(f"🔥 [EVENTO DEEPSEEK] Mensaje detectado de {autor}: '{content}'")
+            try:
+                prompt_usuario = content_lower.replace(f"@{BOT_NICK}", "").replace(BOT_NICK, "").strip()
+                if not prompt_usuario:
+                    prompt_usuario = "¡Hola máquina!"
+                
+                response = deepseek_client.chat.completions.create(
+                    model=DEEPSEEK_MODEL,
+                    messages=[
+                        {"role": "system", "content": "Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana, natural y callejera. Máximo 140 caracteres."},
+                        {"role": "user", "content": f"El usuario {autor} dice: '{prompt_usuario}'"}
+                    ],
+                    temperature=0.9,
+                    max_tokens=80
+                )
+                
+                if response and response.choices:
+                    texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
+                    print(f"✅ [ÉXITO DEEPSEEK] Respuesta: {texto_respuesta}")
+                    await message.channel.send(f"@{autor} {texto_respuesta}")
                     return
-            self.ultima_respuesta_ia[clave_ia] = ahora
-            
-            print(f"🔥 [DeepSeek] Mensaje de {autor}: '{content}'")
-            
-            # Preparar prompt
-            prompt_usuario = content_lower
-            for palabra in [f"@{BOT_NICK}", BOT_NICK]:
-                prompt_usuario = prompt_usuario.replace(palabra, "").strip()
-            
-            if not prompt_usuario:
-                prompt_usuario = "¡Hola máquina! ¿Qué tal la sesión?"
-            
-            # Obtener contexto del chat (últimos 5 mensajes)
-            contexto = " | ".join(self.ultimos_mensajes_chat[canal_nombre][-5:]) if self.ultimos_mensajes_chat[canal_nombre] else None
-            
-            # Obtener respuesta
-            respuesta = await self.obtener_respuesta_deepseek(prompt_usuario, autor, contexto)
-            
-            if respuesta:
-                print(f"✅ [DeepSeek] Respuesta: {respuesta}")
-                await message.channel.send(f"@{autor} {respuesta}")
-                return
+            except Exception as e:
+                print(f"❌ [ERROR CRÍTICO DEEPSEEK]: {type(e).__name__} - {e}")
 
-        # Procesar comandos
         await self.handle_commands(message)
 
-    # ============ BUCLES AUTÓNOMOS ============
     async def bucle_repartir_puntos_actividad(self):
         while True:
-            await asyncio.sleep(300)  # Cada 5 minutos
+            await asyncio.sleep(300) 
             for canal in CANALES:
                 puntos_canal = self.cargar_puntos_canal(canal)
                 if puntos_canal:
@@ -315,42 +247,31 @@ class Bot(commands.Bot):
         await asyncio.sleep(30)
         while True:
             try:
-                await asyncio.sleep(180)  # Cada 3 minutos
+                await asyncio.sleep(180) 
                 for canal_nombre in CANALES:
                     canal_obj = self.get_channel(canal_nombre)
                     if canal_obj:
                         if deepseek_client:
                             try:
-                                # Generar mensaje autónomo con DeepSeek
-                                messages = [
-                                    {"role": "system", "content": "Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres."}
-                                ]
-                                
-                                response = await asyncio.to_thread(
-                                    deepseek_client.chat.completions.create,
+                                response = deepseek_client.chat.completions.create(
                                     model=DEEPSEEK_MODEL,
-                                    messages=messages,
+                                    messages=[
+                                        {"role": "system", "content": "Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres."}
+                                    ],
                                     temperature=0.9,
                                     max_tokens=80
                                 )
-                                
-                                if response and response.choices:
-                                    msg = response.choices[0].message.content.strip().replace('\n', ' ')
-                                else:
-                                    msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
-                                    
+                                msg = (response.choices[0].message.content if response and response.choices else "¿Qué pasa chat? ¿Estáis dormidos o qué track os pongo?").replace('\n', ' ')
                             except Exception as e:
-                                print(f"[ERROR BUCLE AUTONOMO DeepSeek]: {e}")
-                                msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
+                                print(f"[ERROR BUCLE AUTONOMO DEEPSEEK]: {e}")
+                                msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga para ganar la sesión. {random.choice(self.emotes_twitch)}"
                         else:
                             msg = f"¡Vaya temazos de sesión familia! {random.choice(self.emotes_twitch)}"
-                        
-                        await canal_obj.send(msg)
-                        
+                        await canal_obj.send(f"{msg}")
             except Exception as e:
                 print(f"Error bucle autónomo: {e}")
 
-    # ============ COMANDOS ============
+    # ==================== COMANDOS ====================
     @commands.command(name='puntos', aliases=['vatios', 'fiesta'])
     async def cmd_puntos(self, ctx: commands.Context):
         usr = ctx.author.name.lower()
@@ -448,7 +369,6 @@ class Bot(commands.Bot):
     async def cmd_list(self, ctx: commands.Context):
         await ctx.send("🤖 Comandos: !liga, !puntos, !ruleta, !ahorcado, !trivia, !vf, !pedir, !sala, !festero")
 
-# ============ MAIN ============
 async def main():
     if not TOKEN:
         print("ERROR: Falta TWITCH_TOKEN.")
@@ -460,7 +380,7 @@ if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Bot detenido por el usuario.")
+        pass
     except Exception as e:
         print(f"[RECONEXIÓN] Error: {e}")
         traceback.print_exc()
