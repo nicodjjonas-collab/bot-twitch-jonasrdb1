@@ -28,7 +28,6 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
     if not gemini_client:
         return "¡A tope con la sesión! 🚀"
     try:
-        # Usamos el modelo configurado o por defecto gemini-2.5-flash
         modelo = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
         
         response = gemini_client.models.generate_content(
@@ -56,7 +55,7 @@ class Bot(commands.Bot):
         )
 
     async def event_ready(self):
-        print(f"✅ [TWITCH] ¡Bot conectado con éxito como {self.nick}! Canal: {self.initial_channels}")
+        print(f"✅ [TWITCH] ¡Bot conectado con éxito al canal: {TWITCH_CHANNEL}!")
 
     async def event_message(self, message):
         if message.echo:
@@ -65,7 +64,6 @@ class Bot(commands.Bot):
         autor = message.author.name if message.author else "Viewer"
         contenido = message.content
 
-        # Evitar bucles si el bot se responde a sí mismo
         if autor.lower() == self.nick.lower():
             return
 
@@ -75,7 +73,6 @@ class Bot(commands.Bot):
         if contenido.startswith("!"):
             return
 
-        # Llamar a la IA para responder en el chat
         respuesta_ia = responder_con_ia(contenido, autor)
         if respuesta_ia:
             try:
@@ -107,11 +104,9 @@ def run_http_server():
     server.serve_forever()
 
 if __name__ == "__main__":
-    # Iniciar servidor web en segundo plano
     hilo_web = threading.Thread(target=run_http_server, daemon=True)
     hilo_web.start()
 
-    # Arrancar el bot de Twitch si las credenciales están presentes
     if TWITCH_TOKEN and TWITCH_CHANNEL:
         bot = Bot()
         bot.run()
