@@ -9,7 +9,6 @@ import socketserver
 import threading
 from twitchio.ext import commands
 from google import genai
-from google.genai import types
 
 # ==========================================
 # 1. SERVIDOR HTTP OBLIGATORIO PARA RAILWAY
@@ -57,8 +56,6 @@ if GEMINI_KEY:
         print("[INIT] ¡Cliente de Google Gemini conectado correctamente!")
     except Exception as e:
         print(f"[INIT] Error al iniciar cliente Gemini: {e}")
-else:
-    print("[INIT] AVISO: No se encontró GEMINI_API_KEY en las variables de entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -211,50 +208,51 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
                 return
 
-        # ==========================================
-        # PROCESAMIENTO DIRECTO CON IA (GENAI)
-        # ==========================================
-        if not content.startswith('!'):
-            texto_limpio = content.replace(f"@{BOT_NICK}", "").strip()
-            if not texto_limpio:
-                return
-
-            print(f"🔥 [CHAT IA] De @{autor}: '{texto_limpio}'")
-            texto_respuesta = ""
-
-            if gemini_client:
-                try:
-                    prompt_sistema = (
-                        f"Eres un bot de Twitch llamado 'sesionesoldschool' en un directo de música Remember, Hard Dance y Trance. "
-                        f"Estás hablando con el usuario {autor} que te ha dicho: '{texto_limpio}'. "
-                        f"Resóndele directamente a lo que te ha dicho o preguntado de forma natural, callejera, amiguera y como un colega festero. "
-                        f"IMPORTANTE: No digas frases genéricas. Responde de verdad a lo que te plantea. "
-                        f"Sé ultra breve (máximo 120 caracteres, sin saltos de línea)."
-                    )
-
-                    response = gemini_client.models.generate_content(
-                        model=GEMINI_MODEL,
-                        contents=prompt_sistema,
-                        config=types.GenerateContentConfig(
-                            temperature=0.9,
-                            max_output_tokens=60
-                        )
-                    )
-                    
-                    if response and response.text:
-                        texto_respuesta = response.text.strip().replace('\n', ' ')
-                        print(f"✅ [RESPUESTA IA]: {texto_respuesta}")
-                except Exception as e:
-                    print(f"❌ [ERROR IA]: {e}")
-                    traceback.print_exc()
-
-            if not texto_respuesta:
-                texto_respuesta = "¡A tope con los platos y el buen remember tío!"
-
-            await message.channel.send(f"@{autor} {texto_respuesta}")
+        # Si es un comando con signo de exclamación, lo procesamos normalmente
+        if content.startswith('!'):
+            await self.handle_commands(message)
             return
 
-        await self.handle_commands(message)
+        # ==========================================
+        # CONVERSACIÓN LIBRE DIRECTA CON LA IA
+        # ==========================================
+        texto_limpio = content.replace(f"@{BOT_NICK}", "").strip()
+        if not texto_limpio:
+            return
+
+        print(f"🔥 [CHAT IA] Mensaje recibido de @{autor}: '{texto_limpio}'")
+        
+        if gemini_client:
+            try:
+                prompt = (
+                    f"Eres un bot de Twitch llamado 'sesionesoldschool' experto en música Remember, Hard Dance y Trance. "
+                    f"El usuario {autor} te ha dicho exactamente esto: '{texto_limpio}'. "
+                    f"Respondele de forma ultra natural, cercana, como un colega fiestero en un directo de Twitch. "
+                    f"No digas frases repetitivas ni predeterminadas. Contesta directamente a lo que te ha dicho. "
+                    f"Máximo 100 caracteres, sin saltos de línea."
+                )
+
+                respuesta_ia = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt
+                )
+
+                if respuesta_ia and respuesta_ia.text:
+                    texto_final = respuesta_ia.text.strip().replace('\n', ' ')
+                    print(f"✅ [RESPUESTA ENVIADA]: {texto_final}")
+                    await message.channel.send(f"@{autor} {texto_final}")
+                    return
+            except Exception as e:
+                print(f"❌ [ERROR GRAVE EN GEMINI]: {e}")
+                traceback.print_exc()
+
+        # Si por lo que sea falla la API, responde con algo dinámico y aleatorio en vez de una frase fija
+        respuestas_emergencia = [
+            "¡Menudo temazo llevamos ahora mismo tío!",
+            "¡Totalmente de acuerdo, a tope con la sesión!",
+            "¡Eso es así, puro sonido remember de calidad!"
+        ]
+        await message.channel.send(f"@{autor} {random.choice(respuestas_emergencia)}")
 
     async def bucle_repartir_puntos_actividad(self):
         while True:
