@@ -8,7 +8,7 @@ import http.server
 import socketserver
 import threading
 from twitchio.ext import commands
-from openai import OpenAI
+from google import genai
 
 # ==========================================
 # 1. SERVIDOR HTTP OBLIGATORIO PARA RAILWAY
@@ -37,7 +37,7 @@ hilo_web = threading.Thread(target=iniciar_web, daemon=True)
 hilo_web.start()
 
 # ==========================================
-# 2. CONFIGURACIÓN DEL BOT Y DEEPSEEK
+# 2. CONFIGURACIÓN DEL BOT Y GEMINI
 # ==========================================
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
@@ -45,24 +45,20 @@ BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower()
 canal_env = os.environ.get('TWITCH_CANAL', 'jonasrdb').strip().lower()
 CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
-DEEPSEEK_KEY = os.environ.get('DEEPSEEK_API_KEY')
-DEEPSEEK_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
-DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat')
+GEMINI_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
 
 print(f"[INIT] Arrancando bot para los canales: {CANALES} (Bot nick: {BOT_NICK})")
 
-deepseek_client = None
-if DEEPSEEK_KEY:
+gemini_client = None
+if GEMINI_KEY:
     try:
-        deepseek_client = OpenAI(
-            api_key=DEEPSEEK_KEY,
-            base_url=DEEPSEEK_BASE_URL
-        )
-        print("[INIT] ¡Cliente de DeepSeek conectado correctamente!")
+        gemini_client = genai.Client(api_key=GEMINI_KEY)
+        print("[INIT] ¡Cliente de Google Gemini conectado correctamente!")
     except Exception as e:
-        print(f"[INIT] Error al iniciar cliente DeepSeek: {e}")
+        print(f"[INIT] Error al iniciar cliente Gemini: {e}")
 else:
-    print("[INIT] AVISO: No se encontró DEEPSEEK_API_KEY en las variables de entorno.")
+    print("[INIT] AVISO: No se encontró GEMINI_API_KEY (ni GOOGLE_API_KEY) en las variables de entorno.")
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -216,28 +212,34 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (DEEPSEEK) - RESPONDE A TODO
+        # INTELIGENCIA ARTIFICIAL (GOOGLE GEMINI)
         # ==========================================
-        if deepseek_client and not content.startswith('!'):
-            print(f"🔥 [EVENTO DEEPSEEK] Procesando mensaje de {autor}: '{content}'")
+        if gemini_client and not content.startswith('!'):
+            print(f"🔥 [EVENTO GEMINI] Procesando mensaje de {autor}: '{content}'")
             try:
-                response = deepseek_client.chat.completions.create(
-                    model=DEEPSEEK_MODEL,
-                    messages=[
-                        {"role": "system", "content": "Eres un colega más viendo el directo de música remember en Twitch. Habla en español, de forma cercana, natural y callejera. Máximo 140 caracteres."},
-                        {"role": "user", "content": f"El usuario {autor} dice: '{content}'"}
-                    ],
-                    temperature=0.9,
-                    max_tokens=80
+                prompt_sistema = (
+                    "Eres un colega más viendo el directo de música remember en Twitch. "
+                    "Habla en español, de forma cercana, natural, callejera y fiestera. "
+                    "Responde de manera muy breve (máximo 140 caracteres, sin saltos de línea)."
                 )
                 
-                if response and response.choices:
-                    texto_respuesta = response.choices[0].message.content.strip().replace('\n', ' ')
-                    print(f"✅ [ÉXITO DEEPSEEK] Respuesta generada: {texto_respuesta}")
+                response = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=f"El usuario {autor} dice en el chat: '{content}'",
+                    config={
+                        'system_instruction': prompt_sistema,
+                        'temperature': 0.9,
+                        'max_output_tokens': 80
+                    }
+                )
+                
+                if response and response.text:
+                    texto_respuesta = response.text.strip().replace('\n', ' ')
+                    print(f"✅ [ÉXITO GEMINI] Respuesta generada: {texto_respuesta}")
                     await message.channel.send(f"@{autor} {texto_respuesta}")
                     return
             except Exception as e:
-                print(f"❌ [ERROR CRÍTICO DEEPSEEK]: {type(e).__name__} - {e}")
+                print(f"❌ [ERROR CRÍTICO GEMINI]: {type(e).__name__} - {e}")
 
         await self.handle_commands(message)
 
@@ -259,17 +261,18 @@ class Bot(commands.Bot):
                 for canal_nombre in CANALES:
                     canal_obj = self.get_channel(canal_nombre)
                     if canal_obj:
-                        if deepseek_client:
+                        if gemini_client:
                             try:
-                                response = deepseek_client.chat.completions.create(
-                                    model=DEEPSEEK_MODEL,
-                                    messages=[
-                                        {"role": "system", "content": "Eres un espectador en un directo de música remember. Suelta una frase corta de colega animando el chat y haz una pregunta rápida. Máximo 100 caracteres."}
-                                    ],
-                                    temperature=0.9,
-                                    max_tokens=80
+                                response = gemini_client.models.generate_content(
+                                    model=GEMINI_MODEL,
+                                    contents="Suelta una frase corta de colega animando el chat de música remember y haz una pregunta rápida sobre los temas.",
+                                    config={
+                                        'system_instruction': "Eres un espectador en un directo de música remember. Sé breve y callejero.",
+                                        'temperature': 0.9,
+                                        'max_output_tokens': 80
+                                    }
                                 )
-                                msg = (response.choices[0].message.content if response and response.choices else "¿Qué pasa chat? ¿Qué track ponemos?").replace('\n', ' ')
+                                msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Qué track ponemos?").replace('\n', ' ')
                             except:
                                 msg = f"¡Vaya temazos de sesión familia! Recordad usar !liga. {random.choice(self.emotes_twitch)}"
                         else:
