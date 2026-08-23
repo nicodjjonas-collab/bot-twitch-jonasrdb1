@@ -149,6 +149,10 @@ class Bot(commands.Bot):
         autor_lower = autor.lower()
         canal_nombre = message.channel.name.lower()
 
+        # Evitamos que el bot se responda a sí mismo
+        if autor_lower == BOT_NICK:
+            return
+
         if canal_nombre not in self.juegos_estado:
             self.juegos_estado[canal_nombre] = {
                 "trivia_activa": False, "trivia_respuesta_correcta": "",
@@ -205,13 +209,14 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🏆 ¡BOOM! @{autor} adivinó la palabra secreta: **{estado['palabra_secreta'].upper()}** (+50 pts).")
 
         # ==========================================
-        # INTELIGENCIA ARTIFICIAL (GOOGLE GEMINI CHAT)
+        # INTELIGENCIA ARTIFICIAL (GOOGLE GEMINI)
         # ==========================================
         if gemini_client and not content.startswith('!'):
-            print(f"🔥 [EVENTO GEMINI] Procesando mensaje de {autor}: '{content}'")
+            print(f"🔥 [EVENTO GEMINI] Intentando responder a @{autor}: '{content}'")
             try:
-                chat_session = gemini_client.chats.create(
+                response = gemini_client.models.generate_content(
                     model=GEMINI_MODEL,
+                    contents=f"Un espectador llamado {autor} dice en el chat de Twitch: '{content}'",
                     config=types.GenerateContentConfig(
                         system_instruction=(
                             "Eres un colega más viendo el directo de música remember en Twitch. "
@@ -223,15 +228,16 @@ class Bot(commands.Bot):
                     )
                 )
                 
-                response = chat_session.send_message(f"El usuario {autor} dice en el chat de Twitch: '{content}'")
-                
                 if response and response.text:
                     texto_respuesta = response.text.strip().replace('\n', ' ')
-                    print(f"✅ [ÉXITO GEMINI] Respuesta generada: {texto_respuesta}")
+                    print(f"✅ [ÉXITO GEMINI] Respuesta enviada: {texto_respuesta}")
                     await message.channel.send(f"@{autor} {texto_respuesta}")
                     return
+                else:
+                    print("⚠️ [AVISO GEMINI] La respuesta llegó vacía.")
             except Exception as e:
                 print(f"❌ [ERROR CRÍTICO GEMINI]: {type(e).__name__} - {e}")
+                traceback.print_exc()
 
         await self.handle_commands(message)
 
@@ -255,15 +261,15 @@ class Bot(commands.Bot):
                     if canal_obj:
                         if gemini_client:
                             try:
-                                chat_auto = gemini_client.chats.create(
+                                response = gemini_client.models.generate_content(
                                     model=GEMINI_MODEL,
+                                    contents="Suelta una frase corta de colega animando el chat de música remember y haz una pregunta rápida sobre los temas.",
                                     config=types.GenerateContentConfig(
                                         system_instruction="Eres un espectador en un directo de música remember. Sé breve y callejero.",
                                         temperature=0.9,
                                         max_output_tokens=80
                                     )
                                 )
-                                response = chat_auto.send_message("Suelta una frase corta de colega animando el chat de música remember y haz una pregunta rápida sobre los temas.")
                                 msg = (response.text if response and response.text else "¿Qué pasa chat? ¿Qué track ponemos?").replace('\n', ' ')
                             except Exception as e:
                                 print(f"Error IA autónoma: {e}")
