@@ -26,9 +26,11 @@ Sé breve, divertido y natural en tus respuestas.
 
 def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
     if not gemini_client:
+        print("❌ [IA ERROR] El cliente de Gemini no está inicializado (falta la API Key).")
         return "¡A tope con la sesión! 🚀"
     try:
         modelo = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        print(f"🤖 [IA] Consultando al modelo {modelo}...")
         
         response = gemini_client.models.generate_content(
             model=modelo,
@@ -40,10 +42,15 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
             )
         )
         if response and response.text:
-            return " ".join(response.text.strip().splitlines())
+            texto_limpio = " ".join(response.text.strip().splitlines())
+            print(f"✅ [IA RESPUESTA EXITOSA]: {texto_limpio}")
+            return texto_limpio
+            
+        print("⚠️ [IA ADVERTENCIA] La API devolvió una respuesta vacía.")
         return "¡Menudo ambientazo tenemos por el chat! 🎧🔥"
+        
     except Exception as e:
-        print(f"❌ [IA ERROR]: {e}")
+        print(f"❌ [IA EXCEPCIÓN CRÍTICA]: {str(e)}")
         return "¡A tope con la música! 🚀"
 
 class Bot(commands.Bot):
