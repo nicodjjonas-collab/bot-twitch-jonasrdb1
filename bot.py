@@ -4,16 +4,44 @@ import time
 import asyncio
 import traceback
 import json
+import http.server
+import socketserver
+import threading
 from twitchio.ext import commands
 from openai import OpenAI
 
+# ==========================================
+# MINI SERVIDOR HTTP PARA RAILWAY (Evita que se apague)
+# ==========================================
+PORT = int(os.environ.get("PORT", 8080))
+
+class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot de Twitch activo correctamente!")
+
+def iniciar_servidor_web():
+    try:
+        with socketserver.TCPServer(("", PORT), HealthCheckHandler) as httpd:
+            print(f"[WEB] Servidor HTTP escuchando en el puerto {PORT}")
+            httpd.serve_forever()
+    except Exception as e:
+        print(f"[WEB] Error en servidor web: {e}")
+
+# Arrancamos el servidor web en un hilo secundario para que no bloquee el bot
+hilo_web = threading.Thread(target=iniciar_servidor_web, daemon=True)
+hilo_web.start()
+
+# ==========================================
+# CONFIGURACIÓN DEL BOT Y DEEPSEEK
+# ==========================================
 TOKEN = os.environ.get('TWITCH_TOKEN', '').strip()
 BOT_NICK = os.environ.get('TWITCH_BOT', 'sesionesoldschool').lower() 
 
 canal_env = os.environ.get('TWITCH_CANAL', 'jonasrdb').strip().lower()
 CANALES = [canal_env, 'koko_deejay'] if canal_env != 'koko_deejay' else [canal_env]
 
-# Configuración de DeepSeek API
 DEEPSEEK_KEY = os.environ.get('DEEPSEEK_API_KEY')
 DEEPSEEK_BASE_URL = os.environ.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
 DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat')
