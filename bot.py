@@ -2,7 +2,7 @@ import os
 import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
-from twitchio import Client
+from twitchio.ext import commands
 from google import genai
 from google.genai import types
 
@@ -11,7 +11,9 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_
 TWITCH_TOKEN = os.environ.get("TMI_TOKEN")
 TWITCH_CHANNEL = os.environ.get("CHANNEL")
 
-print(f"🔧 [CONFIG] Canal: {TWITCH_CHANNEL} | Token: {'OK' if TWITCH_TOKEN else 'FALTA'} | Gemini: {'OK' if GEMINI_API_KEY else 'FALTA'}")
+print(f"🔧 [INICIO] Canal configurado: {TWITCH_CHANNEL}")
+print(f"🔧 [INICIO] Token presente: {'Sí' if TWITCH_TOKEN else 'NO'}")
+print(f"🔧 [INICIO] Gemini Key presente: {'Sí' if GEMINI_API_KEY else 'NO'}")
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
@@ -28,7 +30,6 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
     try:
         print(f"🤖 [IA] Consultando para {nombre_usuario}: {mensaje_usuario}")
         
-        # Llamada estructurada correcta para google-genai
         response = gemini_client.models.generate_content(
             model='gemini-2.0-flash',
             contents=f"{nombre_usuario} dice en el chat: {mensaje_usuario}",
@@ -52,51 +53,56 @@ def responder_con_ia(mensaje_usuario, nombre_usuario="Viewer"):
         return "¡A tope con la música! 🚀"
 
 
-class BotTwitch(Client):
+class Bot(commands.Bot):
     def __init__(self):
         super().__init__(
             token=TWITCH_TOKEN,
-            nick=TWITCH_CHANNEL,
-            prefix="!",
+            prefix=os.environ.get("BOT_PREFIX", "!"),
             initial_channels=[TWITCH_CHANNEL]
         )
 
     async def event_ready(self):
-        print(f"✅ ¡BOT CONECTADO CORRECTAMENTE A TWITCH COMO: {self.nick}!")
+        print(f"✅ [TWITCH] ¡Bot conectado con éxito como {self.nick}! Canal: {self.initial_channels}")
 
     async def event_message(self, message):
+        # Ignorar mensajes del propio bot
         if message.echo:
             return
 
         autor = message.author.name if message.author else "Viewer"
         contenido = message.content
 
-        # Evitar bucles si el bot habla
         if autor.lower() == self.nick.lower():
             return
 
-        print(f"💬 [CHAT RECIBIDO] {autor}: {contenido}")
+        print(f"💬 [CHAT CAPTURADO] {autor}: {contenido}")
 
-        # Comandos rápidos
-        if contenido.lower() == "!temazo":
-            await message.channel.send(f"@{autor} ¡MENUDO HIMNO DE LA RUTA! 🎹🔥 ¡A bailar!")
-            return
-        elif contenido.lower() == "!energia":
-            nivel = random.randint(85, 100)
-            await message.channel.send(f"⚡ @{autor} ¡El nivel de energía está al **{nivel}%**! 🔥🎛️")
+        # Procesar comandos si los hay
+        await self.handle_commands(message)
+
+        if contenido.startswith("!"):
             return
 
-        # Si no es comando, procesa la IA
+        # Llamar a la IA si es un mensaje normal de chat
         respuesta_ia = responder_con_ia(contenido, autor)
         if respuesta_ia:
             try:
                 await message.channel.send(respuesta_ia)
-                print(f"🤖 [ENVIADO A TWITCH]: {respuesta_ia}")
+                print(f"🚀 [ENVIADO A TWITCH]: {respuesta_ia}")
             except Exception as e:
                 print(f"❌ [ERROR AL ENVIAR A TWITCH]: {e}")
 
+    @commands.command(name="temazo")
+    async def cmd_temazo(self, ctx):
+        await ctx.send(f"@{ctx.author.name} ¡MENUDO HIMNO DE LA RUTA! 🎹🔥 ¡A bailar!")
 
-# Servidor web obligatorio para Railway
+    @commands.command(name="energia")
+    async def cmd_energia(self, ctx):
+        nivel = random.randint(85, 100)
+        await ctx.send(f"⚡ @{ctx.author.name} ¡El nivel de energía está al **{nivel}%**! 🔥🎛️")
+
+
+# --- SERVIDOR HTTP PARA RAILWAY ---
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -107,18 +113,21 @@ class SimpleHandler(BaseHTTPRequestHandler):
 def run_http_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
+    print(f"🌐 [WEB] Servidor HTTP corriendo en el puerto {port}")
     server.serve_forever()
 
 
 if __name__ == "__main__":
+    # Iniciar servidor HTTP en segundo plano para Railway
     hilo_web = threading.Thread(target=run_http_server, daemon=True)
     hilo_web.start()
 
     if TWITCH_TOKEN and TWITCH_CHANNEL:
-        bot = BotTwitch()
+        print("🚀 [INICIO] Arrancando el bot de Twitch...")
+        bot = Bot()
         bot.run()
     else:
-        print("❌ Faltan credenciales de Twitch en las variables de entorno.")
+        print("❌ [ERROR CRÍTICO]: Faltan variables de entorno de Twitch (TMI_TOKEN o CHANNEL).")
         import time
         while True:
             time.sleep(3600)
